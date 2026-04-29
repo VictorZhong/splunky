@@ -43,3 +43,24 @@ export LLM_MODEL=gpt-5.4
 ```
 
 See `docs/splunky-backend-notes.md` and `TODO.md` for current backend scope and next steps.
+
+## Local PostgreSQL
+
+For local development, a dedicated PostgreSQL container can be started with:
+
+```sh
+docker run --name splunky-postgres \
+  -e POSTGRES_USER=splunky \
+  -e POSTGRES_PASSWORD=splunky \
+  -e POSTGRES_DB=splunky \
+  -p 5432:5432 \
+  -d postgres:16
+```
+
+The backend defaults to:
+
+```sh
+DB_URL=jdbc:postgresql://localhost:5432/splunky
+DB_USER=splunky
+DB_PASSWORD=splunky
+```

@@ -35,6 +35,8 @@ class InMemoryLlmCredentialStoreTest {
 
     private static SplunkyProperties properties(String apiKey, String sessionToken) {
         return new SplunkyProperties(
+                new SplunkyProperties.PersistenceProperties(false),
+                new SplunkyProperties.CryptoProperties(null),
                 new SplunkyProperties.SessionProperties(480, true),
                 new SplunkyProperties.LlmProperties(
                         "COPILOT_PERSONAL",

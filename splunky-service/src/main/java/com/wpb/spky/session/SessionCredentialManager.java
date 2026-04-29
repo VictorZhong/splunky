@@ -1,6 +1,8 @@
 package com.wpb.spky.session;
 
 import com.wpb.spky.config.SplunkyProperties;
+import com.wpb.spky.persistence.NoopSessionMetadataStore;
+import com.wpb.spky.persistence.SessionMetadataStore;
 import com.wpb.spky.session.SessionDtos.SessionResponse;
 import com.wpb.spky.session.SessionDtos.UserProfile;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,16 +26,22 @@ public class SessionCredentialManager {
     private final Clock clock;
     private final Duration ttl;
     private final boolean acceptFrontendGeneratedSessions;
+    private final SessionMetadataStore sessionMetadata;
 
     @Autowired
-    public SessionCredentialManager(SplunkyProperties properties) {
-        this(properties, Clock.systemUTC());
+    public SessionCredentialManager(SplunkyProperties properties, SessionMetadataStore sessionMetadata) {
+        this(properties, Clock.systemUTC(), sessionMetadata);
     }
 
     SessionCredentialManager(SplunkyProperties properties, Clock clock) {
+        this(properties, clock, new NoopSessionMetadataStore());
+    }
+
+    SessionCredentialManager(SplunkyProperties properties, Clock clock, SessionMetadataStore sessionMetadata) {
         this.clock = clock;
         this.ttl = Duration.ofMinutes(properties.sessionTtlMinutes());
         this.acceptFrontendGeneratedSessions = properties.acceptFrontendGeneratedSessions();
+        this.sessionMetadata = sessionMetadata;
     }
 
     public SessionResponse start(String username, String password, String environment) {
@@ -47,6 +55,7 @@ public class SessionCredentialManager {
         UserSession session = new UserSession(sessionId, userId, username.trim(), password,
                 normalizeEnvironment(environment), UserSession.SessionStatus.ACTIVE, now, now.plus(ttl), now);
         sessions.put(sessionId, session);
+        sessionMetadata.recordStarted(session);
         return toResponse(session);
     }
 
@@ -58,6 +67,7 @@ public class SessionCredentialManager {
         if (!session.isActive(clock.instant())) return Optional.empty();
         UserSession touched = session.touch(clock.instant());
         sessions.put(sessionId, touched);
+        sessionMetadata.recordTouched(touched);
         return Optional.of(toResponse(touched));
     }
 
@@ -72,6 +82,7 @@ public class SessionCredentialManager {
         if (existing == null && acceptFrontendGeneratedSessions) {
             existing = createFrontendCompatibilitySession(sessionId, now);
             sessions.put(sessionId, existing);
+            sessionMetadata.recordStarted(existing);
         }
         if (existing == null || !existing.isActive(now)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
@@ -80,6 +91,7 @@ public class SessionCredentialManager {
 
         UserSession touched = existing.touch(now);
         sessions.put(sessionId, touched);
+        sessionMetadata.recordTouched(touched);
         return touched;
     }
 
@@ -90,7 +102,9 @@ public class SessionCredentialManager {
         }
         UserSession session = sessions.get(sessionId);
         if (session == null) return;
-        sessions.put(sessionId, session.logout(clock.instant()));
+        UserSession loggedOut = session.logout(clock.instant());
+        sessions.put(sessionId, loggedOut);
+        sessionMetadata.recordEnded(loggedOut);
     }
 
     public static String resolveSessionId(String splunkyHeader, String spkyHeader) {

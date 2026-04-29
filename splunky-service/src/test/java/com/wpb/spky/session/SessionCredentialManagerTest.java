@@ -1,6 +1,7 @@
 package com.wpb.spky.session;
 
 import com.wpb.spky.config.SplunkyProperties;
+import com.wpb.spky.persistence.NoopSessionMetadataStore;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -11,7 +12,7 @@ class SessionCredentialManagerTest {
 
     @Test
     void acceptsFrontendGeneratedSessionWhenCompatibilityModeIsEnabled() {
-        SessionCredentialManager manager = new SessionCredentialManager(properties(true));
+        SessionCredentialManager manager = new SessionCredentialManager(properties(true), new NoopSessionMetadataStore());
         UUID sessionId = UUID.randomUUID();
 
         UserSession session = manager.require(sessionId.toString());
@@ -23,7 +24,7 @@ class SessionCredentialManagerTest {
 
     @Test
     void storesSplunkPasswordOnlyInRuntimeSession() {
-        SessionCredentialManager manager = new SessionCredentialManager(properties(false));
+        SessionCredentialManager manager = new SessionCredentialManager(properties(false), new NoopSessionMetadataStore());
 
         var response = manager.start("zhong.zc", "secret-password", "SIT");
         UserSession session = manager.require(response.sessionId().toString());
@@ -34,6 +35,8 @@ class SessionCredentialManagerTest {
 
     private static SplunkyProperties properties(boolean acceptFrontendSessions) {
         return new SplunkyProperties(
+                new SplunkyProperties.PersistenceProperties(false),
+                new SplunkyProperties.CryptoProperties(null),
                 new SplunkyProperties.SessionProperties(480, acceptFrontendSessions),
                 null
         );

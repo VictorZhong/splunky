@@ -1,0 +1,27 @@
+package com.wpb.spky.api;
+
+import com.wpb.spky.persistence.QueryTemplateRepository;
+import com.wpb.spky.persistence.QueryTemplateRepository.QueryTemplateRecord;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/query-templates")
+@ConditionalOnBean(QueryTemplateRepository.class)
+public class QueryTemplateController {
+
+    private final QueryTemplateRepository queryTemplates;
+
+    public QueryTemplateController(QueryTemplateRepository queryTemplates) {
+        this.queryTemplates = queryTemplates;
+    }
+
+    @GetMapping
+    public List<QueryTemplateRecord> list() {
+        return queryTemplates.findEnabled();
+    }
+}

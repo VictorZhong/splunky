@@ -4,9 +4,19 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "splunky")
 public record SplunkyProperties(
+        PersistenceProperties persistence,
+        CryptoProperties crypto,
         SessionProperties session,
         LlmProperties llm
 ) {
+    public boolean persistenceEnabled() {
+        return persistence == null || persistence.enabled() == null || persistence.enabled();
+    }
+
+    public String cryptoSecretKey() {
+        return crypto == null ? null : crypto.secretKey();
+    }
+
     public int sessionTtlMinutes() {
         return session == null || session.ttlMinutes() == null ? 480 : session.ttlMinutes();
     }
@@ -24,6 +34,14 @@ public record SplunkyProperties(
     public record SessionProperties(
             Integer ttlMinutes,
             Boolean acceptFrontendGeneratedSessions
+    ) {}
+
+    public record PersistenceProperties(
+            Boolean enabled
+    ) {}
+
+    public record CryptoProperties(
+            String secretKey
     ) {}
 
     public record LlmProperties(

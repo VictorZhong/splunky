@@ -5,8 +5,8 @@
 - Module: `splunky-service`
 - Runtime: Java 17 + Spring Boot 3
 - Package root: `com.wpb.spky`
-- Storage: in-memory only for now
-- Database: deferred
+- Storage: PostgreSQL for schema/session metadata/LLM credentials, in-memory for active placeholder investigation responses
+- Database: Flyway-managed PostgreSQL
 - Splunk client: deferred
 - Investigation API: frontend-compatible placeholder responses
 
@@ -38,6 +38,7 @@ Rules:
 - Splunk password is not persisted.
 - Sessions expire after `SPKY_SESSION_TTL_MINUTES`, default 480 minutes.
 - The backend accepts both `X-Splunky-Session-Id` and `X-SPKY-Session-Id`.
+- Session metadata is persisted to `spky_user_session`; reusable Splunk secrets are not persisted.
 
 There is a temporary compatibility switch:
 
@@ -65,19 +66,42 @@ splunky.llm.primary-provider: COPILOT_PERSONAL
 splunky.llm.fallback-provider: REMOTE_API
 ```
 
+## Database
+
+Local default:
+
+```sh
+DB_URL=jdbc:postgresql://localhost:5432/splunky
+DB_USER=splunky
+DB_PASSWORD=splunky
+```
+
+Flyway is enabled by default:
+
+```yaml
+spring.flyway.table: spky_flyway_schema_history
+spring.flyway.locations: classpath:db/migration
+```
+
+Current migration:
+
+```text
+splunky-service/src/main/resources/db/migration/V1__init_spky_tables.sql
+```
+
 ## Credential Handling
 
-Because DB is deferred, `InMemoryLlmCredentialStore` is used for now.
+`JdbcLlmCredentialStore` is used by default.
 
 Supported sources:
 
 - `LLM_API_KEY` as Copilot bootstrap API key
 - `COPILOT_SESSION_TOKEN` as temporary bootstrap session token
-- `PUT /api/llm-credential` for runtime in-memory replacement
+- `PUT /api/llm-credential` for runtime replacement
 
-The store returns only a non-sensitive SHA-256 fingerprint prefix. It never returns the raw secret.
+Secrets are encrypted before storage in `spky_llm_credential`. The store returns only a non-sensitive fingerprint. It never returns the raw secret.
 
-Future DB-backed replacement should keep the same `LlmCredentialStore` interface and move credential storage to `spky_llm_credential`, encrypted at rest.
+Set `SPKY_SECRET_KEY` to a base64-encoded 32-byte key before storing real credentials outside local development. Without it, the backend uses a local development key and logs a warning.
 
 ## Copilot Refresh
 

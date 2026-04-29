@@ -5,6 +5,7 @@ import com.wpb.spky.llm.LlmCredentialDtos.LlmCredentialStatus;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
 import java.nio.charset.StandardCharsets;
@@ -18,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 @Repository
+@ConditionalOnProperty(name = "splunky.persistence.enabled", havingValue = "false")
 public class InMemoryLlmCredentialStore implements LlmCredentialStore {
 
     private static final Logger log = LoggerFactory.getLogger(InMemoryLlmCredentialStore.class);
