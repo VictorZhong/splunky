@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: splunky-service
+
+server:
+  port: ${SPKY_SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    root: INFO
+    com.wpb.spky: DEBUG
+    org.springframework.web.client: INFO
+
+splunky:
+  session:
+    ttl-minutes: ${SPKY_SESSION_TTL_MINUTES:480}
+    # Compatibility bridge for the current frontend mock, which generates a
+    # session ID in browser storage before backend login is wired.
+    accept-frontend-generated-sessions: ${SPKY_ACCEPT_FRONTEND_SESSIONS:true}
+  llm:
+    primary-provider: ${SPKY_LLM_PRIMARY_PROVIDER:COPILOT_PERSONAL}
+    fallback-provider: ${SPKY_LLM_FALLBACK_PROVIDER:REMOTE_API}
+    copilot:
+      bootstrap-api-key: ${LLM_API_KEY:}
+      bootstrap-session-token: ${COPILOT_SESSION_TOKEN:}
+      model: ${LLM_MODEL:gpt-5.4}
+      max-completion-tokens: ${LLM_MAX_OUTPUT_TOKENS:${LLM_MAX_COMPLETION_TOKENS:2048}}
+      editor-version: ${COPILOT_EDITOR_VERSION:1.114.0}
+      base-url: ${LLM_BASE_URL:https://api.githubcopilot.com}
+      token-url: ${COPILOT_TOKEN_URL:https://api.github.com/copilot_internal/v2/token}
+      # Full proxy URL for Copilot traffic, for example:
+      # http://username:password@proxy-host:80
+      # Percent-encode special characters in username/password.
+      proxy-url: ${LLM_PROXY_URL:}
+    remote:
+      base-url: ${REMOTE_LLM_BASE_URL:}
+      api-key: ${REMOTE_LLM_API_KEY:}
+      model: ${REMOTE_LLM_MODEL:gpt-5.4}
+      max-completion-tokens: ${REMOTE_LLM_MAX_COMPLETION_TOKENS:2048}

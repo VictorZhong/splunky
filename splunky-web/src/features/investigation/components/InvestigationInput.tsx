@@ -11,11 +11,11 @@ import {
   Typography,
 } from 'antd'
 import type { Dayjs } from 'dayjs'
-import { Search, Sparkles } from 'lucide-react'
+import { Clock3, FileSearch, Search, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStartInvestigation } from '../hooks/useInvestigation'
-import type { InvestigationInputType, TimezoneOption } from '../types'
+import type { TimezoneOption } from '../types'
 import {
   buildTimeRange,
   defaultTimezone,
@@ -40,12 +40,11 @@ const examples = [
   'Check 5xx spike for payment-sapi in last 30 minutes',
 ]
 
-const inputTypeLabels = {
-  CORRELATION_ID: 'Correlation ID',
-  ERROR_RESPONSE: 'Error Response',
-  API_NAME_OR_FIELD: 'API Name',
-  NATURAL_LANGUAGE: 'Natural Lang',
-}
+const recentInvestigations = [
+  'payment-sapi HUB timeout',
+  'payee-service validation warning',
+  'limit-service latency spike',
+]
 
 export function InvestigationInput() {
   const navigate = useNavigate()
@@ -54,9 +53,6 @@ export function InvestigationInput() {
   const [timezone, setTimezone] = useState<TimezoneOption>(defaultTimezone)
   const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | null>(null)
   const [apiName, setApiName] = useState('payment-sapi')
-  const [selectedInputTypes, setSelectedInputTypes] = useState<
-    InvestigationInputType[]
-  >(detectInputTypes(rawText))
   const [stageIndex, setStageIndex] = useState(0)
   const mutation = useStartInvestigation()
 
@@ -74,28 +70,12 @@ export function InvestigationInput() {
     return () => window.clearInterval(timer)
   }, [mutation.isPending])
 
-  function updateRawText(value: string) {
-    setRawText(value)
-    setSelectedInputTypes(detectInputTypes(value))
-  }
-
-  function toggleInputType(type: InvestigationInputType, checked: boolean) {
-    setSelectedInputTypes((current) => {
-      if (checked) {
-        return current.includes(type) ? current : [...current, type]
-      }
-
-      const next = current.filter((item) => item !== type)
-      return next.length > 0 ? next : current
-    })
-  }
-
   function submitInvestigation() {
     setStageIndex(0)
     mutation.mutate(
       {
         rawText,
-        selectedInputTypes,
+        selectedInputTypes: detectedTypes,
         timeRange: buildTimeRange(
           timeRangeLabel,
           timezone,
@@ -138,36 +118,10 @@ export function InvestigationInput() {
             <Space orientation="vertical" size={16} className="w-full">
               <TextArea
                 value={rawText}
-                onChange={(event) => updateRawText(event.target.value)}
+                onChange={(event) => setRawText(event.target.value)}
                 autoSize={{ minRows: 8, maxRows: 12 }}
                 placeholder="Paste an error response, correlation ID, API name, field value, or ask what you want to investigate..."
               />
-
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <Typography.Text className="text-sm font-medium text-slate-700">
-                  Input signals
-                </Typography.Text>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {Object.entries(inputTypeLabels).map(([value, label]) => {
-                    const type = value as InvestigationInputType
-                    const detected = detectedTypes.includes(type)
-                    return (
-                      <Tag.CheckableTag
-                        key={value}
-                        checked={selectedInputTypes.includes(type)}
-                        onChange={(checked) => toggleInputType(type, checked)}
-                        className={
-                          detected
-                            ? 'border border-teal-200 bg-teal-50'
-                            : 'border border-slate-200 bg-white'
-                        }
-                      >
-                        {label}
-                      </Tag.CheckableTag>
-                    )
-                  })}
-                </div>
-              </div>
 
               <div className="grid gap-3 md:grid-cols-[180px_minmax(220px,1fr)_170px]">
                 <Select
@@ -248,18 +202,42 @@ export function InvestigationInput() {
 
         <aside className="space-y-4">
           <Card title="Examples" className="border-slate-200 shadow-sm">
-            <Space orientation="vertical" className="w-full">
+            <div className="space-y-2">
               {examples.map((example) => (
-                <Button
+                <button
                   key={example}
-                  className="h-auto justify-start whitespace-normal text-left"
-                  icon={<Sparkles size={15} />}
+                  type="button"
+                  className="flex w-full items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 transition hover:border-teal-300 hover:bg-teal-50"
                   onClick={() => setRawText(example)}
                 >
-                  {example}
-                </Button>
+                  <Sparkles size={15} className="mt-0.5 shrink-0 text-teal-700" />
+                  <span className="min-w-0 whitespace-normal break-words leading-5">
+                    {example}
+                  </span>
+                </button>
               ))}
-            </Space>
+            </div>
+          </Card>
+          <Card title="Recent Investigations" className="border-slate-200 shadow-sm">
+            <div className="space-y-2">
+              {recentInvestigations.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className="flex w-full items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  onClick={() => setRawText(item)}
+                >
+                  <Clock3 size={15} className="mt-0.5 shrink-0 text-slate-500" />
+                  <span className="min-w-0 whitespace-normal break-words leading-5">
+                    {item}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              <FileSearch size={14} className="mr-1 inline align-[-2px]" />
+              Saved history will connect to backend storage later.
+            </div>
           </Card>
         </aside>
       </div>

@@ -2,6 +2,7 @@ import {
   Alert,
   Button,
   Card,
+  Collapse,
   Divider,
   Input,
   Space,
@@ -119,7 +120,7 @@ export function AiFollowUpPanel({ investigation }: AiFollowUpPanelProps) {
   }
 
   return (
-    <aside className="min-w-0 space-y-4 xl:sticky xl:top-[72px] xl:h-[calc(100vh-88px)]">
+    <aside className="min-w-0 space-y-4 xl:sticky xl:top-[80px] xl:h-[calc(100vh-96px)]">
       <Card
         title={
           <Space>
@@ -134,11 +135,11 @@ export function AiFollowUpPanel({ investigation }: AiFollowUpPanelProps) {
             minHeight: 0,
             flex: 1,
             flexDirection: 'column',
-            gap: 16,
+            gap: 14,
           },
         }}
       >
-        <div className="min-h-0 flex-1 space-y-3 overflow-auto pr-1">
+        <div className="min-h-[420px] flex-1 space-y-3 overflow-auto rounded-lg border border-slate-100 bg-white p-3">
           {investigation.conversation.map((message) => (
             <ChatBubble key={message.id} message={message} />
           ))}
@@ -189,27 +190,37 @@ export function AiFollowUpPanel({ investigation }: AiFollowUpPanelProps) {
           Send
         </Button>
 
-        <Card size="small" title="Run History" className="border-slate-200">
-          <Timeline
-            items={investigation.runs
-              .slice()
-              .reverse()
-              .map((run) => ({
-                color:
-                  run.runId === investigation.activeRunId ? 'green' : 'gray',
-                content: (
-                  <div>
-                    <Typography.Text strong>
-                      Run #{run.runNumber}: {run.title}
-                    </Typography.Text>
-                    <Typography.Paragraph className="m-0 text-xs text-slate-500">
-                      {run.summary}
-                    </Typography.Paragraph>
-                  </div>
-                ),
-              }))}
-          />
-        </Card>
+        <Collapse
+          size="small"
+          ghost
+          items={[
+            {
+              key: 'runs',
+              label: 'Run History',
+              children: (
+                <Timeline
+                  items={investigation.runs
+                    .slice()
+                    .reverse()
+                    .map((run) => ({
+                      color:
+                        run.runId === investigation.activeRunId ? 'green' : 'gray',
+                      content: (
+                        <div>
+                          <Typography.Text strong>
+                            Run #{run.runNumber}: {run.title}
+                          </Typography.Text>
+                          <Typography.Paragraph className="m-0 text-xs text-slate-500">
+                            {run.summary}
+                          </Typography.Paragraph>
+                        </div>
+                      ),
+                    }))}
+                />
+              ),
+            },
+          ]}
+        />
       </Card>
     </aside>
   )

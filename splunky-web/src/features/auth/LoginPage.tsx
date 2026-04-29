@@ -1,12 +1,42 @@
 import { Alert, Button, Card, Form, Input, Layout, Typography } from 'antd'
-import { LockKeyhole, LogIn, ShieldCheck, UserRound } from 'lucide-react'
+import {
+  FileSearch,
+  GitBranch,
+  LockKeyhole,
+  LogIn,
+  MessagesSquare,
+  UserRound,
+} from 'lucide-react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useSessionStore } from './sessionStore'
+import type { LucideIcon } from 'lucide-react'
 
 interface LoginFormValues {
   username: string
   password: string
 }
+
+const featureHighlights: Array<{
+  title: string
+  body: string
+  Icon: LucideIcon
+}> = [
+  {
+    title: 'Evidence-first diagnosis',
+    body: 'Summary, confidence, linked logs, and recommended actions.',
+    Icon: FileSearch,
+  },
+  {
+    title: 'Call path visibility',
+    body: 'Timeline, sequence, and service graph show where requests failed.',
+    Icon: GitBranch,
+  },
+  {
+    title: 'Follow-up workflow',
+    body: 'Ask for expansion, similar errors, or incident-ready summaries.',
+    Icon: MessagesSquare,
+  },
+]
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -30,23 +60,20 @@ export function LoginPage() {
             Splunky
           </Typography.Text>
           <Typography.Title level={1} className="mt-3">
-            Sign in with your Splunk credentials
+            Investigate API failures from Splunk evidence
           </Typography.Title>
           <Typography.Paragraph className="text-base text-slate-600">
-            Splunky uses these credentials only to query Splunk during this
-            browser session. The password is not saved by the frontend mock.
+            Start from a correlation ID, error payload, API name, or plain
+            question. Splunky turns raw Splunk logs into a structured
+            investigation workspace.
           </Typography.Paragraph>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            {[
-              ['Session scoped', 'A session ID is generated after login.'],
-              ['No password storage', 'Credentials are not persisted.'],
-              ['401 aware', 'Invalid credentials will prompt re-login.'],
-            ].map(([title, body]) => (
+            {featureHighlights.map(({ title, body, Icon }) => (
               <div
                 key={title}
                 className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
               >
-                <ShieldCheck size={18} className="mb-2 text-teal-700" />
+                <Icon size={18} className="mb-2 text-teal-700" />
                 <Typography.Text strong>{title}</Typography.Text>
                 <Typography.Paragraph className="mb-0 mt-1 text-sm text-slate-500">
                   {body}
@@ -67,8 +94,8 @@ export function LoginPage() {
             className="mb-5"
             type="info"
             showIcon
-            title="Credentials are session-only"
-            description="The frontend sends a generated session ID with mock API calls. Backend credential validation will be added later."
+            title="Splunky queries Splunk as you"
+            description="Your password is used only for the current session and is not saved. It expires immediately after logout, and the session also expires after 30 minutes of inactivity."
           />
           <Form<LoginFormValues> layout="vertical" onFinish={submit}>
             <Form.Item

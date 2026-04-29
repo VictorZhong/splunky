@@ -16,7 +16,7 @@ export function AppHeader({ showNewSearch = false }: AppHeaderProps) {
   const initials = session?.username.slice(0, 2).toUpperCase() ?? 'SP'
 
   function openNewSearchTab() {
-    window.open('/', '_blank', 'noopener,noreferrer')
+    window.open('/', '_blank')?.focus()
   }
 
   function handleLogout() {

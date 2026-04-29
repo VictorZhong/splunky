@@ -106,7 +106,7 @@ export function InvestigationPage() {
   return (
     <Layout className="splunky-shell">
       <AppHeader showNewSearch />
-      <main className="grid min-h-[calc(100vh-56px)] gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+      <main className="grid min-h-[calc(100vh-56px)] gap-4 p-4 2xl:grid-cols-[minmax(0,1fr)_480px] xl:grid-cols-[minmax(0,1fr)_440px]">
         <section className="min-w-0 space-y-4">
           <ResultContextBar investigation={investigation} />
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">

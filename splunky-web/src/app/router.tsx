@@ -3,6 +3,7 @@ import { Spin } from 'antd'
 import { lazy, Suspense } from 'react'
 import { LoginPage } from '../features/auth/LoginPage'
 import { ProtectedRoute } from '../features/auth/ProtectedRoute'
+import { SessionTimeoutWatcher } from '../features/auth/SessionTimeoutWatcher'
 import { UnauthorizedHandler } from '../features/auth/UnauthorizedHandler'
 
 const InvestigationInputPage = lazy(() =>
@@ -28,6 +29,7 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <UnauthorizedHandler />
+      <SessionTimeoutWatcher />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
