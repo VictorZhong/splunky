@@ -1,5 +1,3 @@
-export type Environment = 'SIT' | 'UAT' | 'NFT' | 'LOCAL_MOCK'
-
 export type InvestigationInputType =
   | 'CORRELATION_ID'
   | 'ERROR_RESPONSE'
@@ -25,11 +23,9 @@ export interface Investigation {
 
 export interface InvestigationInput {
   rawText: string
-  detectedType: InvestigationInputType
-  environment: Environment
+  detectedTypes: InvestigationInputType[]
   timeRange: TimeRange
   apiName?: string
-  market?: string
   correlationId?: string
 }
 
@@ -37,6 +33,12 @@ export interface TimeRange {
   label: string
   from: string
   to: string
+  timezone: TimezoneOption
+}
+
+export interface TimezoneOption {
+  label: string
+  offset: string
 }
 
 export interface InvestigationRunSummary {
@@ -65,11 +67,9 @@ export interface InvestigationResult {
 }
 
 export interface InvestigationContext {
-  environment: Environment
   timeRange: TimeRange
   correlationId?: string
   apiName?: string
-  market?: string
   lastRunAt: string
 }
 
@@ -216,10 +216,9 @@ export interface SuggestedFollowUp {
 
 export interface StartInvestigationRequest {
   rawText: string
-  environment: Environment
-  timeRangeLabel: string
+  selectedInputTypes: InvestigationInputType[]
+  timeRange: TimeRange
   apiName?: string
-  market?: string
 }
 
 export interface FollowUpRequest {

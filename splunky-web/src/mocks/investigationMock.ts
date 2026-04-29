@@ -1,7 +1,6 @@
 import dayjs from 'dayjs'
 import {
   buildTimeRange,
-  detectInputType,
   extractCorrelationId,
   inferApiName,
 } from '../features/investigation/utils/inputDetection'
@@ -47,18 +46,16 @@ function createChatMessage(
 }
 
 function createInput(request: StartInvestigationRequest): InvestigationInput {
-  const detectedType = detectInputType(request.rawText)
+  const detectedTypes = request.selectedInputTypes
   const correlationId =
     extractCorrelationId(request.rawText) ??
-    (detectedType === 'CORRELATION_ID' ? request.rawText.trim() : 'abc-123')
+    (detectedTypes.includes('CORRELATION_ID') ? request.rawText.trim() : 'abc-123')
 
   return {
     rawText: request.rawText,
-    detectedType,
-    environment: request.environment,
-    timeRange: buildTimeRange(request.timeRangeLabel),
+    detectedTypes,
+    timeRange: request.timeRange,
     apiName: request.apiName || inferApiName(request.rawText) || 'payment-sapi',
-    market: request.market && request.market !== 'All' ? request.market : 'HK',
     correlationId,
   }
 }
@@ -464,7 +461,7 @@ function createQueries(input: InvestigationInput, similarTimeouts: number): SplQ
       id: 'spl-001',
       templateName: 'Find logs by correlation ID',
       reason: `User provided correlation ID ${correlationId}`,
-      spl: `index=payment_${input.environment.toLowerCase()} correlationId="${correlationId}" earliest="${timeRange.from}" latest="${timeRange.to}" | sort _time`,
+      spl: `index=payment_test correlationId="${correlationId}" earliest="${timeRange.from}" latest="${timeRange.to}" timezone="${timeRange.timezone.offset}" | sort _time`,
       timeRange,
       resultCount: similarTimeouts > 0 ? 148 : 86,
       executionDurationMs: 1200,
@@ -475,7 +472,7 @@ function createQueries(input: InvestigationInput, similarTimeouts: number): SplQ
       id: 'spl-002',
       templateName: 'Find downstream timeout evidence',
       reason: 'Failure hypothesis points to downstream timeout',
-      spl: `index=payment_${input.environment.toLowerCase()} correlationId="${correlationId}" "hub-payment-propose-api" ("timeout" OR "Read timed out")`,
+      spl: `index=payment_test correlationId="${correlationId}" "hub-payment-propose-api" ("timeout" OR "Read timed out")`,
       timeRange,
       resultCount: similarTimeouts > 0 ? 18 : 5,
       executionDurationMs: 860,
@@ -489,7 +486,7 @@ function createQueries(input: InvestigationInput, similarTimeouts: number): SplQ
       id: 'spl-003',
       templateName: 'Find similar HUB timeouts',
       reason: 'Follow-up requested expanded search window',
-      spl: `index=payment_${input.environment.toLowerCase()} service=payment-sapi downstream=hub-payment-propose-api status=TIMEOUT earliest="${timeRange.from}" latest="${timeRange.to}" | stats count by correlationId`,
+      spl: `index=payment_test service=payment-sapi downstream=hub-payment-propose-api status=TIMEOUT earliest="${timeRange.from}" latest="${timeRange.to}" | stats count by correlationId`,
       timeRange,
       resultCount: similarTimeouts,
       executionDurationMs: 1420,
@@ -548,11 +545,9 @@ function createResult(
     runId,
     runNumber,
     context: {
-      environment: input.environment,
       timeRange: input.timeRange,
       correlationId: input.correlationId,
       apiName: input.apiName,
-      market: input.market,
       lastRunAt: dayjs().toISOString(),
     },
     summary: createSummary(similarTimeouts),
@@ -578,11 +573,9 @@ function createNoResultInvestigation(input: InvestigationInput): Investigation {
     runId,
     runNumber: 1,
     context: {
-      environment: input.environment,
       timeRange: input.timeRange,
       correlationId: input.correlationId,
       apiName: input.apiName,
-      market: input.market,
       lastRunAt: dayjs().toISOString(),
     },
     summary: {
@@ -640,8 +633,8 @@ function createNoResultInvestigation(input: InvestigationInput): Investigation {
 export function createMockInvestigation(
   request: StartInvestigationRequest = {
     rawText: mockUserInput,
-    environment: 'SIT',
-    timeRangeLabel: 'Last 30 min',
+    selectedInputTypes: ['CORRELATION_ID'],
+    timeRange: buildTimeRange('Last 30 min'),
   },
 ): Investigation {
   const input = createInput(request)
@@ -690,7 +683,10 @@ export function createRerunInvestigation(
   const runNumber = investigation.runs.length + 1
   const input: InvestigationInput = {
     ...investigation.input,
-    timeRange: buildTimeRange('Last 1 hour'),
+    timeRange: buildTimeRange(
+      'Last 1 hour',
+      investigation.input.timeRange.timezone,
+    ),
   }
   const activeResult = createResult(investigation.id, input, runNumber, 12)
   const runSummary = {

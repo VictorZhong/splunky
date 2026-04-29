@@ -1,6 +1,6 @@
 import { Card, Divider, Space, Tag, Typography } from 'antd'
 import type { Investigation } from '../types'
-import { formatDateTime, formatEnvironment } from '../utils/formatters'
+import { formatDateTime } from '../utils/formatters'
 import { RunHistoryDropdown } from './RunHistoryDropdown'
 
 type ResultContextBarProps = {
@@ -9,7 +9,6 @@ type ResultContextBarProps = {
 
 export function ResultContextBar({ investigation }: ResultContextBarProps) {
   const context = investigation.activeResult.context
-  const inputType = investigation.input.detectedType.replaceAll('_', ' ')
 
   return (
     <Card className="border-slate-200 shadow-sm" styles={{ body: { padding: 16 } }}>
@@ -18,14 +17,16 @@ export function ResultContextBar({ investigation }: ResultContextBarProps) {
           <Typography.Text strong>
             Investigation {investigation.id}
           </Typography.Text>
-          <span>Input: {inputType}</span>
-          <span>Env: {formatEnvironment(context.environment)}</span>
-          <span>{context.timeRange.label}</span>
+          <span>Input: {investigation.input.detectedTypes.join(', ')}</span>
+          <span>
+            {context.timeRange.label} | {context.timeRange.timezone.label}{' '}
+            {context.timeRange.timezone.offset}
+          </span>
           {context.correlationId ? (
             <span>Correlation ID: {context.correlationId}</span>
           ) : null}
           {context.apiName ? <span>API: {context.apiName}</span> : null}
-          {context.market ? <Tag>{context.market}</Tag> : null}
+          <Tag>Test environment</Tag>
           <span>Updated: {formatDateTime(context.lastRunAt)}</span>
         </Space>
         <RunHistoryDropdown

@@ -2,22 +2,29 @@ import {
   Alert,
   Button,
   Card,
+  DatePicker,
   Input,
   Progress,
-  Segmented,
   Select,
   Space,
   Tag,
   Typography,
 } from 'antd'
+import type { Dayjs } from 'dayjs'
 import { Search, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStartInvestigation } from '../hooks/useInvestigation'
-import type { Environment } from '../types'
-import { detectInputType } from '../utils/inputDetection'
+import type { InvestigationInputType, TimezoneOption } from '../types'
+import {
+  buildTimeRange,
+  defaultTimezone,
+  detectInputTypes,
+  timezoneOptions,
+} from '../utils/inputDetection'
 
 const { TextArea } = Input
+const { RangePicker } = DatePicker
 
 const loadingStages = [
   'Understanding input',
@@ -43,14 +50,17 @@ const inputTypeLabels = {
 export function InvestigationInput() {
   const navigate = useNavigate()
   const [rawText, setRawText] = useState('correlation id abc-123')
-  const [environment, setEnvironment] = useState<Environment>('SIT')
   const [timeRangeLabel, setTimeRangeLabel] = useState('Last 30 min')
+  const [timezone, setTimezone] = useState<TimezoneOption>(defaultTimezone)
+  const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | null>(null)
   const [apiName, setApiName] = useState('payment-sapi')
-  const [market, setMarket] = useState('HK')
+  const [selectedInputTypes, setSelectedInputTypes] = useState<
+    InvestigationInputType[]
+  >(detectInputTypes(rawText))
   const [stageIndex, setStageIndex] = useState(0)
   const mutation = useStartInvestigation()
 
-  const detectedType = useMemo(() => detectInputType(rawText), [rawText])
+  const detectedTypes = useMemo(() => detectInputTypes(rawText), [rawText])
 
   useEffect(() => {
     if (!mutation.isPending) {
@@ -64,15 +74,34 @@ export function InvestigationInput() {
     return () => window.clearInterval(timer)
   }, [mutation.isPending])
 
+  function updateRawText(value: string) {
+    setRawText(value)
+    setSelectedInputTypes(detectInputTypes(value))
+  }
+
+  function toggleInputType(type: InvestigationInputType, checked: boolean) {
+    setSelectedInputTypes((current) => {
+      if (checked) {
+        return current.includes(type) ? current : [...current, type]
+      }
+
+      const next = current.filter((item) => item !== type)
+      return next.length > 0 ? next : current
+    })
+  }
+
   function submitInvestigation() {
     setStageIndex(0)
     mutation.mutate(
       {
         rawText,
-        environment,
-        timeRangeLabel,
+        selectedInputTypes,
+        timeRange: buildTimeRange(
+          timeRangeLabel,
+          timezone,
+          customRange ?? undefined,
+        ),
         apiName: apiName.trim() || undefined,
-        market,
       },
       {
         onSuccess: (investigation) => {
@@ -85,6 +114,8 @@ export function InvestigationInput() {
   const progress = mutation.isPending
     ? Math.round(((stageIndex + 1) / loadingStages.length) * 100)
     : 0
+  const requiresCustomRange = timeRangeLabel === 'Custom'
+  const customRangeReady = !requiresCustomRange || customRange !== null
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-56px)] max-w-6xl items-center px-5 py-10">
@@ -107,33 +138,38 @@ export function InvestigationInput() {
             <Space orientation="vertical" size={16} className="w-full">
               <TextArea
                 value={rawText}
-                onChange={(event) => setRawText(event.target.value)}
+                onChange={(event) => updateRawText(event.target.value)}
                 autoSize={{ minRows: 8, maxRows: 12 }}
                 placeholder="Paste an error response, correlation ID, API name, field value, or ask what you want to investigate..."
               />
 
-              <div className="flex flex-wrap items-center gap-3">
-                <Segmented
-                  value={detectedType}
-                  options={Object.entries(inputTypeLabels).map(([value, label]) => ({
-                    label,
-                    value,
-                  }))}
-                />
-                <Tag color="cyan">Detected: {inputTypeLabels[detectedType]}</Tag>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <Typography.Text className="text-sm font-medium text-slate-700">
+                  Input signals
+                </Typography.Text>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {Object.entries(inputTypeLabels).map(([value, label]) => {
+                    const type = value as InvestigationInputType
+                    const detected = detectedTypes.includes(type)
+                    return (
+                      <Tag.CheckableTag
+                        key={value}
+                        checked={selectedInputTypes.includes(type)}
+                        onChange={(checked) => toggleInputType(type, checked)}
+                        className={
+                          detected
+                            ? 'border border-teal-200 bg-teal-50'
+                            : 'border border-slate-200 bg-white'
+                        }
+                      >
+                        {label}
+                      </Tag.CheckableTag>
+                    )
+                  })}
+                </div>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-4">
-                <Select
-                  value={environment}
-                  onChange={setEnvironment}
-                  options={[
-                    { value: 'SIT', label: 'SIT' },
-                    { value: 'UAT', label: 'UAT' },
-                    { value: 'NFT', label: 'NFT' },
-                    { value: 'LOCAL_MOCK', label: 'Local Mock' },
-                  ]}
-                />
+              <div className="grid gap-3 md:grid-cols-[180px_minmax(220px,1fr)_170px]">
                 <Select
                   value={timeRangeLabel}
                   onChange={setTimeRangeLabel}
@@ -151,14 +187,32 @@ export function InvestigationInput() {
                   placeholder="API name"
                 />
                 <Select
-                  value={market}
-                  onChange={setMarket}
-                  options={['All', 'HK', 'TW', 'PH', 'SG', 'UK'].map((value) => ({
-                    value,
-                    label: value,
+                  value={`${timezone.label}|${timezone.offset}`}
+                  onChange={(value) => {
+                    const [label, offset] = value.split('|')
+                    setTimezone({ label, offset })
+                  }}
+                  options={timezoneOptions.map((item) => ({
+                    value: `${item.label}|${item.offset}`,
+                    label: `${item.label} (${item.offset})`,
                   }))}
                 />
               </div>
+
+              {requiresCustomRange ? (
+                <RangePicker
+                  showTime={{ format: 'HH:mm' }}
+                  format="YYYY-MM-DD HH:mm"
+                  className="w-full"
+                  onChange={(value) => {
+                    if (value?.[0] && value[1]) {
+                      setCustomRange([value[0], value[1]])
+                    } else {
+                      setCustomRange(null)
+                    }
+                  }}
+                />
+              ) : null}
 
               {mutation.isError ? (
                 <Alert
@@ -183,7 +237,7 @@ export function InvestigationInput() {
                 size="large"
                 icon={<Search size={18} />}
                 loading={mutation.isPending}
-                disabled={!rawText.trim()}
+                disabled={!rawText.trim() || !customRangeReady}
                 onClick={submitInvestigation}
               >
                 Investigate
@@ -206,14 +260,6 @@ export function InvestigationInput() {
                 </Button>
               ))}
             </Space>
-          </Card>
-          <Card className="border-slate-200 shadow-sm">
-            <Typography.Text strong>Mock triggers</Typography.Text>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Tag>no-result</Tag>
-              <Tag>mock-error</Tag>
-              <Tag>def-456</Tag>
-            </div>
           </Card>
         </aside>
       </div>

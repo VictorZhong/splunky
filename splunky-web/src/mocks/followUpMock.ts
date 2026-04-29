@@ -1,8 +1,9 @@
 import type {
   FollowUpResponse,
   Investigation,
-  StartInvestigationRequest,
 } from '../features/investigation/types'
+import type { StartInvestigationRequest } from '../features/investigation/types'
+import { detectInputTypes } from '../features/investigation/utils/inputDetection'
 import { classifyFollowUp } from '../features/investigation/utils/followUpClassification'
 import {
   appendConversation,
@@ -67,9 +68,8 @@ export function handleMockFollowUp(
   if (actionType === 'NEW_INVESTIGATION') {
     const request: StartInvestigationRequest = {
       rawText: prompt,
-      environment: investigation.input.environment,
-      timeRangeLabel: investigation.input.timeRange.label,
-      market: investigation.input.market,
+      selectedInputTypes: detectInputTypes(prompt),
+      timeRange: investigation.input.timeRange,
     }
     const next = createMockInvestigation(request)
     return {

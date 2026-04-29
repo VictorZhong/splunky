@@ -1,0 +1,1367 @@
+openapi: 3.0.3
+info:
+  title: Splunky API Contract
+  version: 0.1.0
+  description: |
+    Backend API contract for Splunky MVP.
+
+    Splunky is an AI-assisted investigation tool for test-environment API troubleshooting.
+    It accepts correlation IDs, error responses, API names, field values, or natural-language questions,
+    executes controlled Splunk searches using the current user's Splunk credential, and returns structured investigation results.
+
+    Important persistence rule:
+    - Chat, investigation metadata, query metadata, derived summaries, timeline, service graph, and downstream summaries may be persisted.
+    - Raw Splunk logs must not be persisted. Raw log entries returned by this API are transient previews from the latest Splunk query response.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: /api
+    description: Relative API base path
+
+tags:
+  - name: Session
+    description: Splunk-backed user session APIs
+  - name: LLM Credential
+    description: User LLM credential APIs
+  - name: Investigation
+    description: Investigation lifecycle APIs
+  - name: Follow-up
+    description: Follow-up question and re-query APIs
+  - name: Query Template
+    description: Splunk query template APIs
+  - name: Feedback
+    description: User feedback APIs
+
+security:
+  - sessionCookie: []
+  - sessionHeader: []
+
+paths:
+  /sessions/splunk-login:
+    post:
+      tags: [Session]
+      summary: Start a Splunky session using Splunk credentials
+      description: |
+        The backend validates/uses the provided Splunk credential and creates a Splunky session.
+        The Splunk password must not be persisted.
+      operationId: loginWithSplunkCredential
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SplunkLoginRequest'
+            examples:
+              login:
+                value:
+                  splunkUsername: zhongzc
+                  splunkPassword: password-not-persisted
+                  environment: SIT
+      responses:
+        '200':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /sessions/current:
+    get:
+      tags: [Session]
+      summary: Get current session
+      operationId: getCurrentSession
+      responses:
+        '200':
+          description: Current session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Session]
+      summary: Logout current session
+      operationId: logoutCurrentSession
+      responses:
+        '204':
+          description: Logged out
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /llm-credential/status:
+    get:
+      tags: [LLM Credential]
+      summary: Get current user's LLM credential status
+      operationId: getLlmCredentialStatus
+      responses:
+        '200':
+          description: Credential status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmCredentialStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /llm-credential:
+    put:
+      tags: [LLM Credential]
+      summary: Save or replace current user's LLM credential
+      description: |
+        Stores an encrypted user LLM credential/API key. The raw secret must never be returned by any API.
+      operationId: upsertLlmCredential
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertLlmCredentialRequest'
+      responses:
+        '200':
+          description: Credential saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmCredentialStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /investigations:
+    get:
+      tags: [Investigation]
+      summary: List current user's investigations
+      operationId: listInvestigations
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/InvestigationStatus'
+        - name: environment
+          in: query
+          required: false
+          schema:
+            type: string
+            example: SIT
+      responses:
+        '200':
+          description: Investigation page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestigationPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Investigation]
+      summary: Start a new investigation
+      operationId: createInvestigation
+      description: |
+        Creates an investigation and executes the initial run.
+        The returned result may include transient raw log previews, but raw logs must not be persisted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvestigationRequest'
+            examples:
+              correlationId:
+                value:
+                  environment: SIT
+                  input:
+                    rawText: Find logs for correlation id abc-123
+                    inputType: NATURAL_LANGUAGE
+                  options:
+                    includeRawLogPreview: true
+                    maxRawLogPreviewCount: 50
+              errorResponse:
+                value:
+                  environment: SIT
+                  input:
+                    rawText: '{"status":500,"errorCode":"PAYMENT_PROPOSE_FAILED","message":"Downstream service unavailable"}'
+                    inputType: ERROR_RESPONSE
+      responses:
+        '201':
+          description: Investigation created and initial run completed or started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestigationResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /investigations/{investigationId}:
+    get:
+      tags: [Investigation]
+      summary: Get investigation with active result
+      operationId: getInvestigation
+      parameters:
+        - $ref: '#/components/parameters/InvestigationId'
+        - name: includeRawLogPreview
+          in: query
+          required: false
+          description: Raw log previews are transient and may be unavailable for old runs.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Investigation active result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestigationResultResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Investigation]
+      summary: Update investigation metadata
+      operationId: updateInvestigation
+      parameters:
+        - $ref: '#/components/parameters/InvestigationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInvestigationRequest'
+      responses:
+        '200':
+          description: Updated investigation summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestigationSummaryItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /investigations/{investigationId}/runs:
+    get:
+      tags: [Investigation]
+      summary: List lightweight run history for an investigation
+      operationId: listInvestigationRuns
+      parameters:
+        - $ref: '#/components/parameters/InvestigationId'
+      responses:
+        '200':
+          description: Run list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InvestigationRunSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /investigations/{investigationId}/runs/{runId}:
+    get:
+      tags: [Investigation]
+      summary: Get one run result
+      operationId: getInvestigationRun
+      parameters:
+        - $ref: '#/components/parameters/InvestigationId'
+        - $ref: '#/components/parameters/RunId'
+        - name: includeRawLogPreview
+          in: query
+          required: false
+          description: Raw log previews are transient and may be unavailable for old runs.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Investigation run result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestigationResultResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /investigations/{investigationId}/follow-ups:
+    post:
+      tags: [Follow-up]
+      summary: Ask a follow-up question
+      operationId: askFollowUp
+      description: |
+        The backend classifies the follow-up as one of:
+        - ANSWER_FROM_CURRENT_RESULT
+        - REFINE_ANALYSIS
+        - RERUN_QUERY
+        - NEW_INVESTIGATION
+
+        If the action is RERUN_QUERY, Splunky executes new Splunk searches and replaces the active result.
+      parameters:
+        - $ref: '#/components/parameters/InvestigationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FollowUpRequest'
+            examples:
+              answerOnly:
+                value:
+                  message: Is this a frontend issue?
+                  includeRawLogPreview: false
+              requery:
+                value:
+                  message: Expand the search to last 1 hour and find similar HUB timeout errors.
+                  includeRawLogPreview: true
+      responses:
+        '200':
+          description: Follow-up response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FollowUpResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /investigations/{investigationId}/feedback:
+    post:
+      tags: [Feedback]
+      summary: Submit feedback for an investigation or run
+      operationId: submitFeedback
+      parameters:
+        - $ref: '#/components/parameters/InvestigationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+      responses:
+        '201':
+          description: Feedback saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /query-templates:
+    get:
+      tags: [Query Template]
+      summary: List enabled query templates
+      operationId: listQueryTemplates
+      responses:
+        '200':
+          description: Query templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QueryTemplate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: SPKY_SESSION
+    sessionHeader:
+      type: apiKey
+      in: header
+      name: X-SPKY-Session-Id
+
+  parameters:
+    InvestigationId:
+      name: investigationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthenticated or expired session
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    SplunkLoginRequest:
+      type: object
+      required: [splunkUsername, splunkPassword, environment]
+      properties:
+        splunkUsername:
+          type: string
+          maxLength: 128
+          example: zhongzc
+        splunkPassword:
+          type: string
+          format: password
+          description: Used for current session only. Must not be persisted.
+        environment:
+          type: string
+          example: SIT
+
+    SessionResponse:
+      type: object
+      required: [sessionId, user, environment, status, startedAt, expiresAt]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        user:
+          $ref: '#/components/schemas/UserProfile'
+        splunkUsername:
+          type: string
+          example: zhongzc
+        environment:
+          type: string
+          example: SIT
+        status:
+          type: string
+          enum: [ACTIVE, EXPIRED, LOGGED_OUT]
+        startedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        lastActivityAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    UserProfile:
+      type: object
+      required: [userId, username, status]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+          example: zhongzc
+        displayName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [ACTIVE, DISABLED]
+
+    LlmCredentialStatus:
+      type: object
+      required: [configured, provider, status]
+      properties:
+        configured:
+          type: boolean
+        provider:
+          type: string
+          example: COPILOT_PERSONAL
+        status:
+          type: string
+          enum: [ACTIVE, EXPIRED, REVOKED, NOT_CONFIGURED]
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastRefreshedAt:
+          type: string
+          format: date-time
+          nullable: true
+        secretFingerprint:
+          type: string
+          nullable: true
+          description: Non-sensitive fingerprint for diagnostics. Never return the raw secret.
+
+    UpsertLlmCredentialRequest:
+      type: object
+      required: [provider, credentialType, secret]
+      properties:
+        provider:
+          type: string
+          enum: [COPILOT_PERSONAL]
+        credentialType:
+          type: string
+          enum: [API_KEY, ACCESS_TOKEN]
+        secret:
+          type: string
+          format: password
+          description: Raw secret sent by user. Backend encrypts before storage and never returns it.
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateInvestigationRequest:
+      type: object
+      required: [environment, input]
+      properties:
+        environment:
+          type: string
+          example: SIT
+        input:
+          $ref: '#/components/schemas/InvestigationInput'
+        timeRange:
+          $ref: '#/components/schemas/TimeRange'
+        options:
+          $ref: '#/components/schemas/InvestigationOptions'
+
+    InvestigationInput:
+      type: object
+      required: [rawText]
+      properties:
+        rawText:
+          type: string
+          description: Correlation ID, error response, API name, field value, or natural-language request.
+        inputType:
+          $ref: '#/components/schemas/InvestigationInputType'
+
+    InvestigationInputType:
+      type: string
+      enum: [CORRELATION_ID, ERROR_RESPONSE, API_NAME, FIELD_VALUE, NATURAL_LANGUAGE, UNKNOWN]
+      default: UNKNOWN
+
+    InvestigationOptions:
+      type: object
+      properties:
+        includeRawLogPreview:
+          type: boolean
+          default: true
+          description: If true, response may include transient raw log previews. They must not be persisted.
+        maxRawLogPreviewCount:
+          type: integer
+          minimum: 0
+          maximum: 200
+          default: 50
+
+    TimeRange:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date-time
+          nullable: true
+        to:
+          type: string
+          format: date-time
+          nullable: true
+        quickRange:
+          type: string
+          nullable: true
+          example: LAST_30_MINUTES
+          enum: [LAST_30_MINUTES, LAST_1_HOUR, LAST_4_HOURS, LAST_8_HOURS, CUSTOM]
+
+    InvestigationResultResponse:
+      type: object
+      required: [investigation, activeRun, result]
+      properties:
+        investigation:
+          $ref: '#/components/schemas/InvestigationSummaryItem'
+        activeRun:
+          $ref: '#/components/schemas/InvestigationRunSummary'
+        result:
+          $ref: '#/components/schemas/InvestigationResult'
+        chatMessages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+
+    InvestigationSummaryItem:
+      type: object
+      required: [investigationId, title, environment, status, createdAt, updatedAt]
+      properties:
+        investigationId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        environment:
+          type: string
+          example: SIT
+        initialInputType:
+          $ref: '#/components/schemas/InvestigationInputType'
+        status:
+          $ref: '#/components/schemas/InvestigationStatus'
+        activeRunId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    InvestigationStatus:
+      type: string
+      enum: [RUNNING, COMPLETED, FAILED, ARCHIVED]
+
+    InvestigationPage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvestigationSummaryItem'
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+          format: int64
+
+    UpdateInvestigationRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 512
+        status:
+          $ref: '#/components/schemas/InvestigationStatus'
+
+    InvestigationRunSummary:
+      type: object
+      required: [runId, investigationId, runNo, triggerType, status, createdAt]
+      properties:
+        runId:
+          type: string
+          format: uuid
+        investigationId:
+          type: string
+          format: uuid
+        runNo:
+          type: integer
+        triggerType:
+          type: string
+          enum: [INITIAL, FOLLOW_UP_RERUN, MANUAL_RERUN]
+        userPrompt:
+          type: string
+        intent:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [RUNNING, COMPLETED, FAILED, CANCELLED]
+        finalStatus:
+          type: string
+          nullable: true
+          enum: [SUCCESS, FAILED, PARTIAL, UNKNOWN]
+        failurePoint:
+          type: string
+          nullable: true
+        hypothesis:
+          type: string
+          nullable: true
+        confidence:
+          $ref: '#/components/schemas/Confidence'
+        timeRange:
+          $ref: '#/components/schemas/TimeRange'
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    InvestigationResult:
+      type: object
+      required: [context, summary, timeline, serviceGraph, sequence, downstreamCalls, rawLogs, queries, suggestedFollowUps, rawLogsAvailable]
+      properties:
+        context:
+          $ref: '#/components/schemas/InvestigationContext'
+        summary:
+          $ref: '#/components/schemas/DiagnosisSummary'
+        timeline:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineEvent'
+        serviceGraph:
+          $ref: '#/components/schemas/ServiceGraph'
+        sequence:
+          $ref: '#/components/schemas/SequenceView'
+        downstreamCalls:
+          type: array
+          items:
+            $ref: '#/components/schemas/DownstreamCall'
+        rawLogs:
+          type: array
+          description: Transient raw log previews. Must not be persisted in database.
+          items:
+            $ref: '#/components/schemas/RawLogPreview'
+        rawLogsAvailable:
+          type: boolean
+          description: False when raw previews are unavailable because old raw Splunk results were not persisted.
+        queries:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryExecution'
+        suggestedFollowUps:
+          type: array
+          items:
+            $ref: '#/components/schemas/SuggestedFollowUp'
+
+    InvestigationContext:
+      type: object
+      properties:
+        environment:
+          type: string
+          example: SIT
+        correlationId:
+          type: string
+          nullable: true
+          example: abc-123
+        apiName:
+          type: string
+          nullable: true
+          example: payment-sapi
+        market:
+          type: string
+          nullable: true
+          example: HK
+        channel:
+          type: string
+          nullable: true
+          example: MOBILE
+        timeRange:
+          $ref: '#/components/schemas/TimeRange'
+        detectedEntities:
+          type: object
+          additionalProperties: true
+
+    DiagnosisSummary:
+      type: object
+      required: [finalStatus, confidence, evidence, recommendedActions]
+      properties:
+        finalStatus:
+          type: string
+          enum: [SUCCESS, FAILED, PARTIAL, UNKNOWN]
+        failurePoint:
+          type: string
+          nullable: true
+          example: payment-sapi -> hub-payment-propose-api
+        hypothesis:
+          type: string
+          nullable: true
+          example: Downstream HUB timeout before SAPI returned 500.
+        confidence:
+          $ref: '#/components/schemas/Confidence'
+        aiSummary:
+          type: string
+          nullable: true
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceItem'
+        recommendedActions:
+          type: array
+          items:
+            type: string
+
+    Confidence:
+      type: string
+      nullable: true
+      enum: [HIGH, MEDIUM, LOW, UNKNOWN]
+
+    EvidenceItem:
+      type: object
+      required: [label, detail]
+      properties:
+        label:
+          type: string
+          example: HUB timeout found
+        detail:
+          type: string
+        source:
+          type: string
+          nullable: true
+          example: Splunk Query 2
+        queryId:
+          type: string
+          format: uuid
+          nullable: true
+        splunkDeepLink:
+          type: string
+          nullable: true
+
+    TimelineEvent:
+      type: object
+      required: [eventId, order, eventType, status, message]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        order:
+          type: integer
+        eventTime:
+          type: string
+          format: date-time
+          nullable: true
+        serviceName:
+          type: string
+          nullable: true
+        eventType:
+          type: string
+          example: DOWNSTREAM_RESPONSE
+        status:
+          type: string
+          enum: [SUCCESS, FAILED, TIMEOUT, UNKNOWN]
+        durationMs:
+          type: integer
+          nullable: true
+        message:
+          type: string
+        evidenceRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+        metadata:
+          type: object
+          additionalProperties: true
+
+    ServiceGraph:
+      type: object
+      required: [nodes, edges]
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceEdge'
+
+    ServiceNode:
+      type: object
+      required: [nodeId, serviceName, serviceType, status]
+      properties:
+        nodeId:
+          type: string
+          format: uuid
+        serviceName:
+          type: string
+          example: payment-sapi
+        serviceType:
+          type: string
+          enum: [API, GATEWAY, DOWNSTREAM, DATABASE, UNKNOWN]
+        platform:
+          type: string
+          nullable: true
+          example: SHP
+        status:
+          type: string
+          enum: [SUCCESS, FAILED, PARTIAL, UNKNOWN]
+        logCount:
+          type: integer
+          default: 0
+        errorCount:
+          type: integer
+          default: 0
+        firstSeenAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastSeenAt:
+          type: string
+          format: date-time
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+
+    ServiceEdge:
+      type: object
+      required: [edgeId, callerService, calleeService, status, confidence]
+      properties:
+        edgeId:
+          type: string
+          format: uuid
+        callerService:
+          type: string
+        calleeService:
+          type: string
+        operation:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [SUCCESS, FAILED, TIMEOUT, UNKNOWN]
+        latencyMs:
+          type: integer
+          nullable: true
+        callCount:
+          type: integer
+          default: 1
+        confidence:
+          type: string
+          enum: [CONFIRMED, INFERRED, UNKNOWN]
+        evidenceRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+        metadata:
+          type: object
+          additionalProperties: true
+
+    SequenceView:
+      type: object
+      required: [participants, messages]
+      properties:
+        participants:
+          type: array
+          items:
+            type: string
+          example: [Gateway, payment-sapi, payee-service, hub-payment-propose-api]
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/SequenceMessage'
+
+    SequenceMessage:
+      type: object
+      required: [messageId, order, from, to, label, status]
+      properties:
+        messageId:
+          type: string
+          format: uuid
+        order:
+          type: integer
+        from:
+          type: string
+        to:
+          type: string
+        label:
+          type: string
+          example: POST /payments/propose
+        status:
+          type: string
+          enum: [SUCCESS, FAILED, TIMEOUT, UNKNOWN]
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        durationMs:
+          type: integer
+          nullable: true
+        evidenceRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+
+    DownstreamCall:
+      type: object
+      required: [callId, order, downstreamService, status]
+      properties:
+        callId:
+          type: string
+          format: uuid
+        order:
+          type: integer
+        callerService:
+          type: string
+          nullable: true
+        downstreamService:
+          type: string
+        httpMethod:
+          type: string
+          nullable: true
+        endpoint:
+          type: string
+          nullable: true
+        operation:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [SUCCESS, FAILED, TIMEOUT, UNKNOWN]
+        statusCode:
+          type: integer
+          nullable: true
+        latencyMs:
+          type: integer
+          nullable: true
+        errorCode:
+          type: string
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        evidenceRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+
+    RawLogPreview:
+      type: object
+      description: Transient raw log preview returned to UI. This object must not be persisted.
+      required: [previewId, source, message]
+      properties:
+        previewId:
+          type: string
+        queryId:
+          type: string
+          format: uuid
+          nullable: true
+        time:
+          type: string
+          format: date-time
+          nullable: true
+        source:
+          type: string
+          example: Splunk
+        serviceName:
+          type: string
+          nullable: true
+        level:
+          type: string
+          nullable: true
+        message:
+          type: string
+        fields:
+          type: object
+          additionalProperties: true
+          description: Selected fields only. Avoid returning large raw payloads.
+        splunkDeepLink:
+          type: string
+          nullable: true
+
+    QueryExecution:
+      type: object
+      required: [queryId, queryLabel, splText, status, createdAt]
+      properties:
+        queryId:
+          type: string
+          format: uuid
+        templateKey:
+          type: string
+          nullable: true
+          example: FIND_BY_CORRELATION_ID
+        queryLabel:
+          type: string
+          example: Find logs by correlation ID
+        splText:
+          type: string
+        earliestTime:
+          type: string
+          format: date-time
+          nullable: true
+        latestTime:
+          type: string
+          format: date-time
+          nullable: true
+        splunkSearchId:
+          type: string
+          nullable: true
+        splunkDeepLink:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [RUNNING, COMPLETED, FAILED, TIMEOUT]
+        resultCount:
+          type: integer
+          nullable: true
+        executionTimeMs:
+          type: integer
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    EvidenceRef:
+      type: object
+      properties:
+        queryId:
+          type: string
+          format: uuid
+          nullable: true
+        queryLabel:
+          type: string
+          nullable: true
+        splunkDeepLink:
+          type: string
+          nullable: true
+        note:
+          type: string
+          nullable: true
+
+    SuggestedFollowUp:
+      type: object
+      required: [label, message]
+      properties:
+        label:
+          type: string
+          example: Find similar errors
+        message:
+          type: string
+          example: Find similar timeout errors for this downstream in the last 1 hour.
+        expectedAction:
+          $ref: '#/components/schemas/FollowUpAction'
+
+    FollowUpRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        includeRawLogPreview:
+          type: boolean
+          default: false
+        maxRawLogPreviewCount:
+          type: integer
+          minimum: 0
+          maximum: 200
+          default: 50
+
+    FollowUpResponse:
+      type: object
+      required: [action, assistantMessage, chatMessages]
+      properties:
+        action:
+          $ref: '#/components/schemas/FollowUpAction'
+        assistantMessage:
+          $ref: '#/components/schemas/ChatMessage'
+        chatMessages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        updatedActiveResult:
+          $ref: '#/components/schemas/InvestigationResultResponse'
+          nullable: true
+          description: Present when action is RERUN_QUERY or NEW_INVESTIGATION and a new/updated result is available.
+        requeryPlan:
+          $ref: '#/components/schemas/RequeryPlan'
+          nullable: true
+
+    FollowUpAction:
+      type: string
+      enum: [ANSWER_FROM_CURRENT_RESULT, REFINE_ANALYSIS, RERUN_QUERY, NEW_INVESTIGATION]
+
+    RequeryPlan:
+      type: object
+      properties:
+        reason:
+          type: string
+        changes:
+          type: array
+          items:
+            type: string
+          example:
+            - Time range expanded to last 1 hour
+            - Added downstream filter hub-payment-propose-api
+        queryTemplateKeys:
+          type: array
+          items:
+            type: string
+
+    ChatMessage:
+      type: object
+      required: [messageId, role, messageType, content, createdAt]
+      properties:
+        messageId:
+          type: string
+          format: uuid
+        investigationId:
+          type: string
+          format: uuid
+          nullable: true
+        runId:
+          type: string
+          format: uuid
+          nullable: true
+        role:
+          type: string
+          enum: [USER, ASSISTANT, SYSTEM]
+        messageType:
+          type: string
+          enum: [QUESTION, ANSWER, RERUN_NOTICE, ERROR]
+        content:
+          type: string
+        action:
+          $ref: '#/components/schemas/FollowUpAction'
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+
+    QueryTemplate:
+      type: object
+      required: [templateId, templateKey, name, enabled]
+      properties:
+        templateId:
+          type: string
+          format: uuid
+        templateKey:
+          type: string
+          example: FIND_BY_CORRELATION_ID
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        requiredParams:
+          type: array
+          items:
+            type: string
+        optionalParams:
+          type: array
+          items:
+            type: string
+        defaultTimeWindowMinutes:
+          type: integer
+        maxTimeWindowMinutes:
+          type: integer
+        maxResultCount:
+          type: integer
+        enabled:
+          type: boolean
+
+    FeedbackRequest:
+      type: object
+      required: [rating]
+      properties:
+        runId:
+          type: string
+          format: uuid
+          nullable: true
+        messageId:
+          type: string
+          format: uuid
+          nullable: true
+        rating:
+          type: string
+          enum: [HELPFUL, NOT_HELPFUL]
+        comment:
+          type: string
+          nullable: true
+
+    FeedbackResponse:
+      type: object
+      required: [feedbackId, rating, createdAt]
+      properties:
+        feedbackId:
+          type: string
+          format: uuid
+        rating:
+          type: string
+          enum: [HELPFUL, NOT_HELPFUL]
+        createdAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: BAD_REQUEST
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true

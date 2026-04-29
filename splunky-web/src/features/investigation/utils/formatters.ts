@@ -1,10 +1,4 @@
 import dayjs from 'dayjs'
-import type { Environment } from '../types'
-
-export function formatEnvironment(environment: Environment) {
-  return environment === 'LOCAL_MOCK' ? 'Local Mock' : environment
-}
-
 export function formatTimestamp(timestamp: string) {
   return dayjs(timestamp).format('HH:mm:ss.SSS')
 }

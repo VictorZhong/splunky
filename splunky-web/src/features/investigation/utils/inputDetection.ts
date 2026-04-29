@@ -1,26 +1,41 @@
 import dayjs from 'dayjs'
-import type { InvestigationInputType, TimeRange } from '../types'
+import type { InvestigationInputType, TimeRange, TimezoneOption } from '../types'
 
 const uuidLikePattern =
   /\b([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-z]{2,8}-\d{2,8}|abc-123|def-456)\b/i
 
 export function detectInputType(rawText: string): InvestigationInputType {
+  return detectInputTypes(rawText)[0] ?? 'NATURAL_LANGUAGE'
+}
+
+export function detectInputTypes(rawText: string): InvestigationInputType[] {
   const value = rawText.trim()
   const lower = value.toLowerCase()
+  const types = new Set<InvestigationInputType>()
 
   if (value.startsWith('{') || value.startsWith('[')) {
-    return 'ERROR_RESPONSE'
+    types.add('ERROR_RESPONSE')
   }
 
   if (lower.includes('correlation') || uuidLikePattern.test(value)) {
-    return 'CORRELATION_ID'
+    types.add('CORRELATION_ID')
   }
 
   if (/\b(api|sapi|service|endpoint)\b/i.test(value)) {
-    return 'API_NAME_OR_FIELD'
+    types.add('API_NAME_OR_FIELD')
   }
 
-  return 'NATURAL_LANGUAGE'
+  if (
+    types.size === 0 ||
+    lower.includes('why') ||
+    lower.includes('find') ||
+    lower.includes('check') ||
+    lower.includes('what')
+  ) {
+    types.add('NATURAL_LANGUAGE')
+  }
+
+  return Array.from(types)
 }
 
 export function extractCorrelationId(rawText: string): string | undefined {
@@ -37,7 +52,34 @@ export function inferApiName(rawText: string): string | undefined {
   return match?.[1]?.toLowerCase()
 }
 
-export function buildTimeRange(label: string): TimeRange {
+export const defaultTimezone: TimezoneOption = {
+  label: 'HKT',
+  offset: '+08:00',
+}
+
+export const timezoneOptions: TimezoneOption[] = [
+  defaultTimezone,
+  { label: 'UTC', offset: '+00:00' },
+  { label: 'SGT', offset: '+08:00' },
+  { label: 'JST', offset: '+09:00' },
+  { label: 'BST', offset: '+01:00' },
+  { label: 'EST', offset: '-05:00' },
+]
+
+export function buildTimeRange(
+  label: string,
+  timezone: TimezoneOption = defaultTimezone,
+  customRange?: [dayjs.Dayjs, dayjs.Dayjs],
+): TimeRange {
+  if (label === 'Custom' && customRange) {
+    return {
+      label: 'Custom',
+      from: customRange[0].toISOString(),
+      to: customRange[1].toISOString(),
+      timezone,
+    }
+  }
+
   const now = dayjs()
   const minutes = label.includes('15')
     ? 15
@@ -51,5 +93,6 @@ export function buildTimeRange(label: string): TimeRange {
     label,
     from: now.subtract(minutes, 'minute').toISOString(),
     to: now.toISOString(),
+    timezone,
   }
 }

@@ -42,7 +42,6 @@ export function createRawLogsMock({
       splunkUrl,
       fields: {
         correlationId,
-        market: 'HK',
         channel: 'WEB',
         requestId: 'req-payment-8821',
       },

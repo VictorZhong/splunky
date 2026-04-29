@@ -76,9 +76,9 @@ export function InvestigationPage() {
   if (query.isLoading) {
     return (
       <Layout className="splunky-shell">
-        <AppHeader />
+        <AppHeader showNewSearch />
         <div className="flex min-h-[calc(100vh-56px)] items-center justify-center">
-          <Spin size="large" tip="Loading investigation" />
+          <Spin size="large" description="Loading investigation" />
         </div>
       </Layout>
     )
@@ -87,7 +87,7 @@ export function InvestigationPage() {
   if (query.isError || !query.data) {
     return (
       <Layout className="splunky-shell">
-        <AppHeader />
+        <AppHeader showNewSearch />
         <main className="mx-auto w-full max-w-4xl px-5 py-10">
           <Alert
             type="error"
@@ -105,7 +105,7 @@ export function InvestigationPage() {
 
   return (
     <Layout className="splunky-shell">
-      <AppHeader environment={result.context.environment} />
+      <AppHeader showNewSearch />
       <main className="grid min-h-[calc(100vh-56px)] gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_390px]">
         <section className="min-w-0 space-y-4">
           <ResultContextBar investigation={investigation} />

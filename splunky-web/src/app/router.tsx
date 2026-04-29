@@ -1,6 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Spin } from 'antd'
 import { lazy, Suspense } from 'react'
+import { LoginPage } from '../features/auth/LoginPage'
+import { ProtectedRoute } from '../features/auth/ProtectedRoute'
+import { UnauthorizedHandler } from '../features/auth/UnauthorizedHandler'
 
 const InvestigationInputPage = lazy(() =>
   import('../pages/InvestigationPage/InvestigationInputPage').then((module) => ({
@@ -24,12 +27,25 @@ function RouteFallback() {
 export function AppRouter() {
   return (
     <BrowserRouter>
+      <UnauthorizedHandler />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
-          <Route path="/" element={<InvestigationInputPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <InvestigationInputPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/investigations/:investigationId"
-            element={<InvestigationPage />}
+            element={
+              <ProtectedRoute>
+                <InvestigationPage />
+              </ProtectedRoute>
+            }
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
