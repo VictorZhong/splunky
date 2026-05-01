@@ -63,6 +63,11 @@ select {
   font-weight: 600;
 }
 
+.splunky-service-graph .react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .mermaid svg {
   max-width: 100%;
   height: auto;

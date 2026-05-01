@@ -1,4 +1,5 @@
 export type InvestigationInputType =
+  | 'SPLUNK_URL'
   | 'CORRELATION_ID'
   | 'ERROR_RESPONSE'
   | 'API_NAME_OR_FIELD'

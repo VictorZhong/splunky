@@ -40,6 +40,7 @@ export function SummaryView({ result }: SummaryViewProps) {
   const failedDownstream = result.downstreamCalls.find(
     (call) => call.status === 'TIMEOUT' || call.status === 'FAILED',
   )
+  const relatedServices = result.serviceGraph.nodes
   const trend =
     result.runNumber > 1
       ? baseTrend.map((point, index) => ({
@@ -173,17 +174,44 @@ export function SummaryView({ result }: SummaryViewProps) {
         </Space>
       </div>
 
-      <Card title="Affected Services" className="border-slate-200">
-        <Space wrap>
-          {result.summary.affectedServices.map((service) => (
-            <Tag
-              key={service}
-              color={service === failedDownstream?.downstream ? 'red' : 'default'}
-            >
-              {service}
-            </Tag>
-          ))}
-        </Space>
+      <Card title="Related APIs / Traffic Hops" className="border-slate-200">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {relatedServices.map((service) => {
+            const failed = service.serviceName === failedDownstream?.downstream
+
+            return (
+              <button
+                key={service.id}
+                type="button"
+                className={`rounded-lg border bg-white p-3 text-left transition hover:border-teal-300 hover:bg-teal-50 ${
+                  failed ? 'border-red-300 bg-red-50' : 'border-slate-200'
+                }`}
+                onClick={() =>
+                  openDrawer({ type: 'SERVICE_NODE', id: service.id })
+                }
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <Typography.Text strong className="min-w-0 break-words">
+                    {service.serviceName}
+                  </Typography.Text>
+                  <StatusTag status={service.status} />
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  {service.platform ?? 'Unknown platform'}
+                </div>
+                <Space wrap size={[4, 4]} className="mt-2">
+                  <Tag className="m-0">Logs: {service.logCount}</Tag>
+                  <Tag
+                    color={service.errorCount > 0 ? 'red' : 'default'}
+                    className="m-0"
+                  >
+                    Errors: {service.errorCount}
+                  </Tag>
+                </Space>
+              </button>
+            )
+          })}
+        </div>
       </Card>
     </div>
   )

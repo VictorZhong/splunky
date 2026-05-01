@@ -5,26 +5,34 @@ import {
   DatePicker,
   Input,
   Progress,
+  Segmented,
   Select,
   Space,
-  Tag,
   Typography,
 } from 'antd'
-import type { Dayjs } from 'dayjs'
 import { Clock3, FileSearch, Search, Sparkles } from 'lucide-react'
+import dayjs, { type Dayjs } from 'dayjs'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStartInvestigation } from '../hooks/useInvestigation'
-import type { TimezoneOption } from '../types'
 import {
   buildTimeRange,
   defaultTimezone,
   detectInputTypes,
+  isSplunkUrl,
   timezoneOptions,
 } from '../utils/inputDetection'
 
 const { TextArea } = Input
 const { RangePicker } = DatePicker
+
+type TimePreset =
+  | 'From Splunk URL'
+  | 'Last 15 min'
+  | 'Last 30 min'
+  | 'Last 1 hour'
+  | 'Last 4 hours'
+  | 'Custom'
 
 const loadingStages = [
   'Understanding input',
@@ -46,17 +54,39 @@ const recentInvestigations = [
   'limit-service latency spike',
 ]
 
+const baseTimeOptions: TimePreset[] = [
+  'Last 15 min',
+  'Last 30 min',
+  'Last 1 hour',
+  'Last 4 hours',
+  'Custom',
+]
+
+function timezoneKey(timezone: typeof defaultTimezone) {
+  return `${timezone.label}:${timezone.offset}`
+}
+
 export function InvestigationInput() {
   const navigate = useNavigate()
   const [rawText, setRawText] = useState('correlation id abc-123')
-  const [timeRangeLabel, setTimeRangeLabel] = useState('Last 30 min')
-  const [timezone, setTimezone] = useState<TimezoneOption>(defaultTimezone)
-  const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | null>(null)
-  const [apiName, setApiName] = useState('payment-sapi')
+  const [timePreset, setTimePreset] = useState<TimePreset>('Last 30 min')
+  const [timezone, setTimezone] = useState(defaultTimezone)
+  const [customRange, setCustomRange] = useState<[Dayjs, Dayjs]>([
+    dayjs().subtract(30, 'minute'),
+    dayjs(),
+  ])
   const [stageIndex, setStageIndex] = useState(0)
   const mutation = useStartInvestigation()
 
   const detectedTypes = useMemo(() => detectInputTypes(rawText), [rawText])
+  const splunkUrlDetected = useMemo(() => isSplunkUrl(rawText), [rawText])
+  const timeOptions = useMemo(
+    () =>
+      splunkUrlDetected
+        ? ['From Splunk URL' as const, ...baseTimeOptions]
+        : baseTimeOptions,
+    [splunkUrlDetected],
+  )
 
   useEffect(() => {
     if (!mutation.isPending) {
@@ -70,6 +100,21 @@ export function InvestigationInput() {
     return () => window.clearInterval(timer)
   }, [mutation.isPending])
 
+  function updateRawText(value: string) {
+    const wasSplunkUrl = isSplunkUrl(rawText)
+    const nextIsSplunkUrl = isSplunkUrl(value)
+
+    setRawText(value)
+
+    if (nextIsSplunkUrl && !wasSplunkUrl) {
+      setTimePreset('From Splunk URL')
+    }
+
+    if (!nextIsSplunkUrl && wasSplunkUrl && timePreset === 'From Splunk URL') {
+      setTimePreset('Last 30 min')
+    }
+  }
+
   function submitInvestigation() {
     setStageIndex(0)
     mutation.mutate(
@@ -77,11 +122,10 @@ export function InvestigationInput() {
         rawText,
         selectedInputTypes: detectedTypes,
         timeRange: buildTimeRange(
-          timeRangeLabel,
+          timePreset,
           timezone,
-          customRange ?? undefined,
+          timePreset === 'Custom' ? customRange : undefined,
         ),
-        apiName: apiName.trim() || undefined,
       },
       {
         onSuccess: (investigation) => {
@@ -94,23 +138,20 @@ export function InvestigationInput() {
   const progress = mutation.isPending
     ? Math.round(((stageIndex + 1) / loadingStages.length) * 100)
     : 0
-  const requiresCustomRange = timeRangeLabel === 'Custom'
-  const customRangeReady = !requiresCustomRange || customRange !== null
+  const selectedTimezoneKey = timezoneKey(timezone)
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-56px)] max-w-6xl items-center px-5 py-10">
       <div className="grid w-full gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="min-w-0">
           <div className="mb-5">
-            <Tag color="processing" className="mb-3">
-              Frontend mock mode
-            </Tag>
             <Typography.Title level={1} className="m-0 max-w-3xl">
               AI-assisted API log investigation
             </Typography.Title>
             <Typography.Paragraph className="mt-3 max-w-2xl text-base text-slate-600">
-              Paste an error response, correlation ID, API name, field value, or
-              natural-language question.
+              Paste an error response, correlation ID, Splunk search URL, or
+              a natural-language question. Splunky will extract time range,
+              SPL, APIs, and evidence from the input.
             </Typography.Paragraph>
           </div>
 
@@ -118,55 +159,64 @@ export function InvestigationInput() {
             <Space orientation="vertical" size={16} className="w-full">
               <TextArea
                 value={rawText}
-                onChange={(event) => setRawText(event.target.value)}
-                autoSize={{ minRows: 8, maxRows: 12 }}
-                placeholder="Paste an error response, correlation ID, API name, field value, or ask what you want to investigate..."
+                onChange={(event) => updateRawText(event.target.value)}
+                autoSize={{ minRows: 10, maxRows: 16 }}
+                placeholder="Paste a Splunk URL, error response, correlation ID, or ask what you want to investigate..."
               />
 
-              <div className="grid gap-3 md:grid-cols-[180px_minmax(220px,1fr)_170px]">
-                <Select
-                  value={timeRangeLabel}
-                  onChange={setTimeRangeLabel}
-                  options={[
-                    { value: 'Last 15 min', label: 'Last 15 min' },
-                    { value: 'Last 30 min', label: 'Last 30 min' },
-                    { value: 'Last 1 hour', label: 'Last 1 hour' },
-                    { value: 'Last 4 hours', label: 'Last 4 hours' },
-                    { value: 'Custom', label: 'Custom' },
-                  ]}
-                />
-                <Input
-                  value={apiName}
-                  onChange={(event) => setApiName(event.target.value)}
-                  placeholder="API name"
-                />
-                <Select
-                  value={`${timezone.label}|${timezone.offset}`}
-                  onChange={(value) => {
-                    const [label, offset] = value.split('|')
-                    setTimezone({ label, offset })
-                  }}
-                  options={timezoneOptions.map((item) => ({
-                    value: `${item.label}|${item.offset}`,
-                    label: `${item.label} (${item.offset})`,
-                  }))}
-                />
+              <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 lg:grid-cols-[minmax(0,1fr)_180px]">
+                <div className="min-w-0">
+                  <Typography.Text strong>Time range</Typography.Text>
+                  <Segmented
+                    block
+                    value={timePreset}
+                    className="mt-2 w-full"
+                    options={timeOptions.map((option) => ({
+                      label: option,
+                      value: option,
+                    }))}
+                    onChange={(value) => setTimePreset(value as TimePreset)}
+                  />
+                  {timePreset === 'Custom' ? (
+                    <RangePicker
+                      showTime
+                      allowClear={false}
+                      value={customRange}
+                      format="YYYY-MM-DD HH:mm"
+                      className="mt-3 w-full"
+                      onChange={(value) => {
+                        if (value?.[0] && value[1]) {
+                          setCustomRange([value[0], value[1]])
+                        }
+                      }}
+                    />
+                  ) : null}
+                  {timePreset === 'From Splunk URL' ? (
+                    <Typography.Text className="mt-2 block text-xs text-slate-500">
+                      SPL and time window will be imported from the supplied
+                      Splunk URL when backend integration is ready.
+                    </Typography.Text>
+                  ) : null}
+                </div>
+                <div>
+                  <Typography.Text strong>Timezone</Typography.Text>
+                  <Select
+                    className="mt-2 w-full"
+                    value={selectedTimezoneKey}
+                    options={timezoneOptions.map((option) => ({
+                      value: timezoneKey(option),
+                      label: `${option.label} ${option.offset}`,
+                    }))}
+                    onChange={(value) => {
+                      const selected =
+                        timezoneOptions.find(
+                          (option) => timezoneKey(option) === value,
+                        ) ?? defaultTimezone
+                      setTimezone(selected)
+                    }}
+                  />
+                </div>
               </div>
-
-              {requiresCustomRange ? (
-                <RangePicker
-                  showTime={{ format: 'HH:mm' }}
-                  format="YYYY-MM-DD HH:mm"
-                  className="w-full"
-                  onChange={(value) => {
-                    if (value?.[0] && value[1]) {
-                      setCustomRange([value[0], value[1]])
-                    } else {
-                      setCustomRange(null)
-                    }
-                  }}
-                />
-              ) : null}
 
               {mutation.isError ? (
                 <Alert
@@ -191,7 +241,7 @@ export function InvestigationInput() {
                 size="large"
                 icon={<Search size={18} />}
                 loading={mutation.isPending}
-                disabled={!rawText.trim() || !customRangeReady}
+                disabled={!rawText.trim()}
                 onClick={submitInvestigation}
               >
                 Investigate
@@ -208,7 +258,7 @@ export function InvestigationInput() {
                   key={example}
                   type="button"
                   className="flex w-full items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 transition hover:border-teal-300 hover:bg-teal-50"
-                  onClick={() => setRawText(example)}
+                  onClick={() => updateRawText(example)}
                 >
                   <Sparkles size={15} className="mt-0.5 shrink-0 text-teal-700" />
                   <span className="min-w-0 whitespace-normal break-words leading-5">
@@ -225,7 +275,7 @@ export function InvestigationInput() {
                   key={item}
                   type="button"
                   className="flex w-full items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                  onClick={() => setRawText(item)}
+                  onClick={() => updateRawText(item)}
                 >
                   <Clock3 size={15} className="mt-0.5 shrink-0 text-slate-500" />
                   <span className="min-w-0 whitespace-normal break-words leading-5">

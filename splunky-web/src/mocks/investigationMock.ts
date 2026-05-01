@@ -2,6 +2,7 @@ import dayjs from 'dayjs'
 import {
   buildTimeRange,
   extractCorrelationId,
+  extractSplunkUrl,
   inferApiName,
 } from '../features/investigation/utils/inputDetection'
 import type {
@@ -58,6 +59,10 @@ function createInput(request: StartInvestigationRequest): InvestigationInput {
     apiName: request.apiName || inferApiName(request.rawText) || 'payment-sapi',
     correlationId,
   }
+}
+
+function isSplunkUrlInvestigation(input: InvestigationInput) {
+  return input.detectedTypes.includes('SPLUNK_URL')
 }
 
 function createSuggestedFollowUps(): SuggestedFollowUp[] {
@@ -303,6 +308,14 @@ function createServiceGraph(): ServiceGraph {
         errorCount: 0,
       },
       {
+        id: 'istio-ingress',
+        serviceName: 'istio-ingress',
+        platform: 'Mesh',
+        status: 'OK',
+        logCount: 8,
+        errorCount: 0,
+      },
+      {
         id: 'payment-sapi',
         serviceName: 'payment-sapi',
         platform: 'SHP_AWS',
@@ -339,11 +352,22 @@ function createServiceGraph(): ServiceGraph {
       {
         id: 'edge-gateway-payment',
         source: 'gateway',
-        target: 'payment-sapi',
+        target: 'istio-ingress',
         label: 'request',
         operation: 'POST /payments/propose',
         status: 'OK',
         latencyMs: 40,
+        evidenceType: 'CONFIRMED',
+        relatedLogIds: ['log-001', 'log-002'],
+      },
+      {
+        id: 'edge-istio-payment',
+        source: 'istio-ingress',
+        target: 'payment-sapi',
+        label: '200 / 24ms',
+        operation: 'POST /payments/propose',
+        status: 'OK',
+        latencyMs: 24,
         evidenceType: 'CONFIRMED',
         relatedLogIds: ['log-001', 'log-002'],
       },
@@ -455,6 +479,36 @@ function createSequence(): SequenceViewModel {
 function createQueries(input: InvestigationInput, similarTimeouts: number): SplQueryRecord[] {
   const timeRange = input.timeRange
   const correlationId = input.correlationId ?? 'abc-123'
+  const splunkUrl = extractSplunkUrl(input.rawText)
+
+  if (isSplunkUrlInvestigation(input)) {
+    return [
+      {
+        id: 'spl-001',
+        templateName: 'Imported Splunk search URL',
+        reason:
+          'User supplied a Splunk URL. SPL, time range, and matched logs are assumed to come from that existing Splunk search.',
+        spl: 'Imported from Splunk URL; backend will fetch the search job/results directly.',
+        timeRange,
+        resultCount: similarTimeouts > 0 ? 148 : 86,
+        executionDurationMs: 320,
+        status: 'SUCCESS',
+        splunkUrl,
+      },
+      {
+        id: 'spl-002',
+        templateName: 'Analyze imported raw logs',
+        reason:
+          'Splunky analyzes the imported log set without issuing a new broad search.',
+        spl: 'source=imported_splunk_search | ai_extract_trace_and_failure_path',
+        timeRange,
+        resultCount: similarTimeouts > 0 ? 18 : 5,
+        executionDurationMs: 540,
+        status: 'SUCCESS',
+        splunkUrl,
+      },
+    ]
+  }
 
   const queries: SplQueryRecord[] = [
     {
@@ -511,6 +565,7 @@ function createSummary(similarTimeouts: number): DiagnosisSummary {
     logsFound: similarTimeouts > 0 ? 148 : 86,
     affectedServices: [
       'gateway',
+      'istio-ingress',
       'payment-sapi',
       'payee-service',
       'limit-service',
@@ -532,6 +587,16 @@ function createSummary(similarTimeouts: number): DiagnosisSummary {
   }
 }
 
+function createRootCause(input: InvestigationInput, similarTimeouts: number) {
+  if (isSplunkUrlInvestigation(input)) {
+    return 'Splunky imported the raw logs from the supplied Splunk URL and analyzed the existing search result. The failing trace still points to a HUB propose timeout after payment-sapi received the request through gateway and istio.'
+  }
+
+  return similarTimeouts > 0
+    ? 'HUB propose API appears degraded during the expanded window.'
+    : 'payment-sapi waited 30 seconds for HUB propose response and then returned HTTP 500.'
+}
+
 function createResult(
   investigationId: string,
   input: InvestigationInput,
@@ -547,10 +612,12 @@ function createResult(
     context: {
       timeRange: input.timeRange,
       correlationId: input.correlationId,
-      apiName: input.apiName,
       lastRunAt: dayjs().toISOString(),
     },
-    summary: createSummary(similarTimeouts),
+    summary: {
+      ...createSummary(similarTimeouts),
+      rootCauseHypothesis: createRootCause(input, similarTimeouts),
+    },
     timeline: createTimeline(similarTimeouts),
     serviceGraph: createServiceGraph(),
     sequence: createSequence(),
@@ -575,7 +642,6 @@ function createNoResultInvestigation(input: InvestigationInput): Investigation {
     context: {
       timeRange: input.timeRange,
       correlationId: input.correlationId,
-      apiName: input.apiName,
       lastRunAt: dayjs().toISOString(),
     },
     summary: {
@@ -587,7 +653,7 @@ function createNoResultInvestigation(input: InvestigationInput): Investigation {
       recommendedActions: [
         'Expand the time range.',
         'Check the correlation ID value.',
-        'Search by API name if no correlation ID is available.',
+        'Paste a Splunk URL or a fuller error payload if no correlation ID is available.',
       ],
     },
     timeline: [],

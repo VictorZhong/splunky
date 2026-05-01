@@ -3,6 +3,7 @@ import {
   Background,
   Controls,
   MarkerType,
+  Position,
   ReactFlow,
   type Edge,
   type Node,
@@ -17,11 +18,12 @@ type ServiceGraphViewProps = {
 }
 
 const positions: Record<string, { x: number; y: number }> = {
-  gateway: { x: 20, y: 170 },
-  'payment-sapi': { x: 300, y: 170 },
-  'payee-service': { x: 620, y: 30 },
-  'limit-service': { x: 620, y: 170 },
-  'hub-payment-propose-api': { x: 620, y: 320 },
+  gateway: { x: 20, y: 220 },
+  'istio-ingress': { x: 300, y: 220 },
+  'payment-sapi': { x: 580, y: 220 },
+  'payee-service': { x: 900, y: 60 },
+  'limit-service': { x: 900, y: 220 },
+  'hub-payment-propose-api': { x: 900, y: 390 },
 }
 
 function buildNode(node: ServiceNode): Node {
@@ -30,6 +32,8 @@ function buildNode(node: ServiceNode): Node {
   return {
     id: node.id,
     position: positions[node.id] ?? { x: 0, y: 0 },
+    sourcePosition: Position.Right,
+    targetPosition: Position.Left,
     data: {
       label: (
         <div className="text-left">
@@ -58,16 +62,26 @@ function buildNode(node: ServiceNode): Node {
 
 function buildEdge(edge: ServiceEdge): Edge {
   const failed = edge.status === 'FAILED' || edge.status === 'TIMEOUT'
+  const label =
+    edge.status === 'TIMEOUT'
+      ? `Timeout ${edge.latencyMs ?? ''}ms`
+      : edge.latencyMs
+        ? `${edge.status} ${edge.latencyMs}ms`
+        : edge.label
 
   return {
     id: edge.id,
     source: edge.source,
     target: edge.target,
-    label: `${edge.operation ?? edge.label} | ${edge.label}`,
+    type: 'smoothstep',
+    label,
     animated: failed,
+    interactionWidth: 18,
     markerEnd: {
       type: MarkerType.ArrowClosed,
       color: failed ? '#dc2626' : '#64748b',
+      width: 16,
+      height: 16,
     },
     style: {
       stroke: failed ? '#dc2626' : '#64748b',
@@ -80,7 +94,9 @@ function buildEdge(edge: ServiceEdge): Edge {
     },
     labelBgStyle: {
       fill: failed ? '#fff1f2' : '#f8fafc',
+      fillOpacity: 0.95,
     },
+    labelBgPadding: [6, 4],
   }
 }
 
@@ -107,13 +123,17 @@ export function ServiceGraphView({ result }: ServiceGraphViewProps) {
         title="Failure path"
         description="payment-sapi -> hub-payment-propose-api | POST /payments/propose | Timeout / 30000ms"
       />
-      <div className="h-[560px] overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+      <div className="splunky-service-graph h-[560px] overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
         <ReactFlow
           nodes={nodes}
           edges={edges}
           fitView
+          fitViewOptions={{ padding: 0.18 }}
           minZoom={0.55}
           maxZoom={1.4}
+          nodesConnectable={false}
+          edgesFocusable={false}
+          proOptions={{ hideAttribution: true }}
           onNodeClick={(_, node) =>
             openDrawer({ type: 'SERVICE_NODE', id: node.id })
           }

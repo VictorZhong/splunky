@@ -120,7 +120,7 @@ export function AiFollowUpPanel({ investigation }: AiFollowUpPanelProps) {
   }
 
   return (
-    <aside className="min-w-0 space-y-4 xl:sticky xl:top-[80px] xl:h-[calc(100vh-96px)]">
+    <aside className="min-w-0 xl:sticky xl:top-[80px] xl:h-[calc(100vh-96px)]">
       <Card
         title={
           <Space>
@@ -128,18 +128,20 @@ export function AiFollowUpPanel({ investigation }: AiFollowUpPanelProps) {
             AI Assistant
           </Space>
         }
-        className="flex h-full flex-col border-slate-200 shadow-sm"
+        className="flex h-full min-h-0 flex-col border-slate-200 shadow-sm"
         styles={{
           body: {
             display: 'flex',
+            height: '100%',
             minHeight: 0,
+            overflow: 'hidden',
             flex: 1,
             flexDirection: 'column',
-            gap: 14,
+            gap: 12,
           },
         }}
       >
-        <div className="min-h-[420px] flex-1 space-y-3 overflow-auto rounded-lg border border-slate-100 bg-white p-3">
+        <div className="min-h-0 flex-1 space-y-3 overflow-auto rounded-lg border border-slate-100 bg-white p-3">
           {investigation.conversation.map((message) => (
             <ChatBubble key={message.id} message={message} />
           ))}
@@ -151,7 +153,7 @@ export function AiFollowUpPanel({ investigation }: AiFollowUpPanelProps) {
           ) : null}
         </div>
 
-        <div>
+        <div className="shrink-0">
           <Typography.Text strong>Suggested Follow-ups</Typography.Text>
           <div className="mt-2 flex flex-wrap gap-2">
             {investigation.activeResult.suggestedFollowUps.map((item) => (
@@ -166,61 +168,65 @@ export function AiFollowUpPanel({ investigation }: AiFollowUpPanelProps) {
           </div>
         </div>
 
-        <Divider className="m-0" />
+        <div className="shrink-0 space-y-3">
+          <Divider className="m-0" />
 
-        <Input.TextArea
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          onPressEnter={(event) => {
-            if (!event.shiftKey) {
-              event.preventDefault()
-              submit(prompt)
-            }
-          }}
-          autoSize={{ minRows: 3, maxRows: 5 }}
-          placeholder="Ask follow-up..."
-        />
-        <Button
-          type="primary"
-          icon={<Send size={16} />}
-          loading={mutation.isPending}
-          disabled={!prompt.trim()}
-          onClick={() => submit(prompt)}
-        >
-          Send
-        </Button>
+          <Input.TextArea
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            onPressEnter={(event) => {
+              if (!event.shiftKey) {
+                event.preventDefault()
+                submit(prompt)
+              }
+            }}
+            autoSize={{ minRows: 3, maxRows: 4 }}
+            placeholder="Ask follow-up..."
+          />
+          <Button
+            type="primary"
+            icon={<Send size={16} />}
+            loading={mutation.isPending}
+            disabled={!prompt.trim()}
+            onClick={() => submit(prompt)}
+          >
+            Send
+          </Button>
 
-        <Collapse
-          size="small"
-          ghost
-          items={[
-            {
-              key: 'runs',
-              label: 'Run History',
-              children: (
-                <Timeline
-                  items={investigation.runs
-                    .slice()
-                    .reverse()
-                    .map((run) => ({
-                      color:
-                        run.runId === investigation.activeRunId ? 'green' : 'gray',
-                      content: (
-                        <div>
-                          <Typography.Text strong>
-                            Run #{run.runNumber}: {run.title}
-                          </Typography.Text>
-                          <Typography.Paragraph className="m-0 text-xs text-slate-500">
-                            {run.summary}
-                          </Typography.Paragraph>
-                        </div>
-                      ),
-                    }))}
-                />
-              ),
-            },
-          ]}
-        />
+          <Collapse
+            size="small"
+            ghost
+            items={[
+              {
+                key: 'runs',
+                label: 'Run History',
+                children: (
+                  <Timeline
+                    items={investigation.runs
+                      .slice()
+                      .reverse()
+                      .map((run) => ({
+                        color:
+                          run.runId === investigation.activeRunId
+                            ? 'green'
+                            : 'gray',
+                        content: (
+                          <div>
+                            <Typography.Text strong>
+                              Run #{run.runNumber}: {run.title}
+                            </Typography.Text>
+                            <Typography.Paragraph className="m-0 text-xs text-slate-500">
+                              {run.summary}
+                            </Typography.Paragraph>
+                          </div>
+                        ),
+                      }))}
+                  />
+                ),
+              },
+            ]}
+          />
+        </div>
       </Card>
     </aside>
   )

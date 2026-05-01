@@ -63,7 +63,7 @@ export function LoginPage() {
             Investigate API failures from Splunk evidence
           </Typography.Title>
           <Typography.Paragraph className="text-base text-slate-600">
-            Start from a correlation ID, error payload, API name, or plain
+            Start from a Splunk URL, correlation ID, error payload, or plain
             question. Splunky turns raw Splunk logs into a structured
             investigation workspace.
           </Typography.Paragraph>

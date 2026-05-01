@@ -13,6 +13,10 @@ export function detectInputTypes(rawText: string): InvestigationInputType[] {
   const lower = value.toLowerCase()
   const types = new Set<InvestigationInputType>()
 
+  if (isSplunkUrl(value)) {
+    types.add('SPLUNK_URL')
+  }
+
   if (value.startsWith('{') || value.startsWith('[')) {
     types.add('ERROR_RESPONSE')
   }
@@ -36,6 +40,14 @@ export function detectInputTypes(rawText: string): InvestigationInputType[] {
   }
 
   return Array.from(types)
+}
+
+export function isSplunkUrl(rawText: string) {
+  return /^https?:\/\/\S*\/(?:app|en-US\/app|splunkd)\//i.test(rawText.trim())
+}
+
+export function extractSplunkUrl(rawText: string) {
+  return rawText.match(/https?:\/\/\S+/i)?.[0]
 }
 
 export function extractCorrelationId(rawText: string): string | undefined {
@@ -71,6 +83,16 @@ export function buildTimeRange(
   timezone: TimezoneOption = defaultTimezone,
   customRange?: [dayjs.Dayjs, dayjs.Dayjs],
 ): TimeRange {
+  if (label === 'From Splunk URL') {
+    const now = dayjs()
+    return {
+      label,
+      from: now.subtract(30, 'minute').toISOString(),
+      to: now.toISOString(),
+      timezone,
+    }
+  }
+
   if (label === 'Custom' && customRange) {
     return {
       label: 'Custom',

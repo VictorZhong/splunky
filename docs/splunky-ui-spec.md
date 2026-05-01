@@ -2,7 +2,7 @@
 
 ## 1. Product Summary
 
-**Splunky** is an AI-assisted investigation workspace for API testing environments. Users can paste an API error response, enter a correlation ID, provide an API name / field value, or ask a natural-language question. Splunky queries Splunk in the backend, analyzes the returned logs with an LLM, and renders a structured investigation result.
+**Splunky** is an AI-assisted investigation workspace for API testing environments. Users can paste a Splunk search URL, an API error response, a correlation ID, or a natural-language question. Splunky queries or imports Splunk logs in the backend, analyzes the returned logs with an LLM, and renders a structured investigation result.
 
 For the first frontend-only implementation, all backend calls should be mocked. The UI should feel like a real investigation tool, not only a chat application.
 
@@ -42,6 +42,7 @@ The frontend MVP should implement:
     - start new investigation.
 12. Lightweight run history.
 13. Detail drawer for timeline events, graph nodes/edges, downstream calls, raw logs, and SPL queries.
+14. Login screen with mocked session handling for Splunk credentials.
 
 ### 2.2 Out of Scope for Pure Frontend MVP
 
@@ -49,7 +50,7 @@ Do not implement real backend integration yet:
 
 1. No real Splunk connection.
 2. No real LLM call.
-3. No authentication integration.
+3. No real authentication integration beyond frontend mock session behavior.
 4. No persistent database.
 5. No real Confluence / knowledge base integration.
 6. No ServiceNow write-back.
@@ -102,10 +103,11 @@ Recommended Ant Design components:
 Splunky
 │
 ├── Investigation Input
+│   ├── Paste Splunk URL
 │   ├── Paste error response
 │   ├── Enter correlation ID
-│   ├── Enter API name / field value
-│   └── Ask natural-language question
+│   ├── Ask natural-language question
+│   └── Select time range and timezone
 │
 ├── Investigation Workspace
 │   ├── Result Context Bar
@@ -145,15 +147,14 @@ The initial page should be clean and centered.
 │ Splunky                                                     │
 │ AI-assisted API log investigation                           │
 ├─────────────────────────────────────────────────────────────┤
-│ Paste correlation ID, error response, API name, or question  │
+│ Paste Splunk URL, correlation ID, error response, or question │
 │ ┌─────────────────────────────────────────────────────────┐ │
 │ │                                                         │ │
 │ │                                                         │ │
 │ └─────────────────────────────────────────────────────────┘ │
 │                                                             │
-│ [Correlation ID] [Error Response] [API Name] [Natural Lang] │
-│                                                             │
-│ Environment: [SIT ▼]     Time Range: [Last 30 min ▼]        │
+│ Time Range: [Last 30 min] [Last 1 hour] [Custom]            │
+│ Custom: [Start datetime] [End datetime]   TZ: [HKT +08:00]  │
 │                                                             │
 │ [Investigate]                                               │
 │                                                             │
@@ -171,10 +172,11 @@ After investigation starts, switch to a workspace layout.
 ```text
 ┌────────────────────────────────────────────────────────────────────────────┐
 │ Splunky                                                                    │
-│ Env: SIT | User: mock.user | New Investigation                             │
+│ User Guide                                      New Search | User avatar    │
 ├──────────────────────────────────────────────────────────┬─────────────────┤
 │ Current Investigation                                    │ AI Assistant    │
-│ correlationId=abc-123 | API=payment-sapi | 10:00-10:10  │                 │
+│ Original input: correlation id abc-123                   │                 │
+│ Correlation ID: abc-123 | Last 1 hour | Updated: 10:15   │                 │
 │ Run #3: Expanded to last 1 hour                          │                 │
 ├──────────────────────────────────────────────────────────┤                 │
 │ Tabs: Summary | Timeline | Graph | Sequence | Calls | Logs | SPL          │
@@ -200,15 +202,14 @@ Recommended desktop layout:
 The header should include:
 
 - Product name: `Splunky`
-- Environment selector: `SIT`, `UAT`, `NFT`, `Local Mock`
-- Current user display: mock user for frontend phase
-- `New Investigation` button
-- Optional theme toggle
+- `User Guide` entry on the left side. Do not link it until content exists.
+- `New Search` button only in the workspace page. It opens a new browser tab instead of replacing the current investigation.
+- User avatar on the far right with a dropdown containing `Logout`.
 
 Example:
 
 ```text
-Splunky | Env: SIT ▼ | User: zhong.zc | New Investigation
+Splunky | User Guide                                           New Search | Avatar
 ```
 
 ---
@@ -220,20 +221,17 @@ Splunky | Env: SIT ▼ | User: zhong.zc | New Investigation
 Use a large text area with placeholder:
 
 ```text
-Paste an error response, correlation ID, API name, field value, or ask what you want to investigate...
+Paste a Splunk URL, error response, correlation ID, or ask what you want to investigate...
 ```
 
-### 7.2 Input Type Chips
+Do not show a separate API input. A single investigation can involve multiple APIs, gateways, mesh proxies, or downstream systems, so API names should be inferred from logs and analysis results.
 
-Display optional chips:
+### 7.2 Input Type Detection
 
-```text
-[Correlation ID] [Error Response] [API Name] [Downstream Error] [Natural Language]
-```
-
-The user does not have to select a chip. The frontend mock can auto-detect input type using simple rules:
+Do not make input type a single-select control. The frontend should auto-detect multiple input signals from the same text:
 
 ```text
+Splunk URL                           -> SPLUNK_URL
 contains "correlation" or UUID-like text  -> CORRELATION_ID
 starts with "{" or "["                  -> ERROR_RESPONSE
 contains "api" or "sapi"                -> API_NAME_OR_FIELD
@@ -244,18 +242,18 @@ otherwise                                -> NATURAL_LANGUAGE
 
 Add these controls below the input:
 
-- Environment select
-- Time range select
-- Optional API name input
-- Optional market select
+- Time range preset selector
+- Custom start datetime and end datetime when the user selects `Custom`
+- Timezone select on the right side, defaulting to `HKT +08:00`
 
 Initial options:
 
 ```text
-Environment: SIT, UAT, NFT, Local Mock
 Time Range: Last 15 min, Last 30 min, Last 1 hour, Last 4 hours, Custom
-Market: All, HK, TW, PH, SG, UK
+Timezone: HKT +08:00, UTC +00:00, SGT +08:00, JST +09:00, BST +01:00, EST -05:00
 ```
+
+If the input is a Splunk URL, the UI can expose `From Splunk URL` as a time source while still allowing the user to override it with a preset or custom range.
 
 ---
 
@@ -268,19 +266,16 @@ Once a result is available, show a context bar above the tabs.
 Display:
 
 - Investigation ID
-- Active run number
-- Input type
-- Environment
+- Original user input, shown in full with wrapping
 - Time range
 - Correlation ID, if detected
-- API name, if detected
-- Market, if detected
 - Last run time
 
 Example:
 
 ```text
-Investigation inv-001 | Run #3 | Correlation ID: abc-123 | API: payment-sapi | Env: SIT | Last 1 hour | Updated: 10:15:22
+Investigation inv-001 | Updated: 10:15:22 | Correlation ID: abc-123
+Original input: why did payment propose fail for correlation id abc-123
 ```
 
 ### 8.2 Run History Dropdown
@@ -361,7 +356,7 @@ Use cards for:
 - Failure point
 - Confidence
 - Total logs found
-- Affected services
+- Related APIs / traffic hops
 - Failed downstream
 
 Use tags:
@@ -886,7 +881,7 @@ Suggested actions:
 
 ```text
 [Expand to last 1 hour]
-[Check API name]
+[Review inferred inputs]
 [Start new search]
 ```
 
@@ -906,9 +901,8 @@ Splunky could not complete the mock query. Please retry or start a new investiga
 Use these as frontend contract models. They can later align with backend DTOs.
 
 ```ts
-export type Environment = 'SIT' | 'UAT' | 'NFT' | 'LOCAL_MOCK';
-
 export type InvestigationInputType =
+  | 'SPLUNK_URL'
   | 'CORRELATION_ID'
   | 'ERROR_RESPONSE'
   | 'API_NAME_OR_FIELD'
@@ -933,11 +927,9 @@ export interface Investigation {
 
 export interface InvestigationInput {
   rawText: string;
-  detectedType: InvestigationInputType;
-  environment: Environment;
+  detectedTypes: InvestigationInputType[];
   timeRange: TimeRange;
   apiName?: string;
-  market?: string;
   correlationId?: string;
 }
 
@@ -945,6 +937,12 @@ export interface TimeRange {
   label: string;
   from: string;
   to: string;
+  timezone: TimezoneOption;
+}
+
+export interface TimezoneOption {
+  label: string;
+  offset: string;
 }
 
 export interface InvestigationRunSummary {
@@ -973,11 +971,9 @@ export interface InvestigationResult {
 }
 
 export interface InvestigationContext {
-  environment: Environment;
   timeRange: TimeRange;
   correlationId?: string;
   apiName?: string;
-  market?: string;
   lastRunAt: string;
 }
 
@@ -1381,7 +1377,7 @@ Use this prompt when asking Codex to generate the pure frontend:
 ```text
 Build a pure frontend MVP for a product named Splunky.
 
-Splunky is an AI-assisted API log investigation workspace. It allows users to paste a correlation ID, API error response, API name, field value, or natural language question. The frontend should use mock data only. No backend integration is required.
+Splunky is an AI-assisted API log investigation workspace. It allows users to paste a Splunk URL, correlation ID, API error response, or natural-language question. The frontend should use mock data only. No backend integration is required.
 
 Use React + TypeScript + Vite + Ant Design + Tailwind CSS. Use React Flow for the service graph if available.
 

@@ -25,6 +25,20 @@
 - Preset ranges remain available for fast searches.
 - Custom time range should expose start datetime, end datetime, and timezone.
 - Default timezone is `HKT (+08:00)`.
+- If the user enters a Splunk URL, the frontend may mark time as `From Splunk URL`, while still allowing the user to override it with a preset or custom range.
+
+## Query Input
+
+- The query page should keep one primary text input for Splunk URL, error response, correlation ID, or natural-language question.
+- Do not show API, environment, or market as separate user inputs in the MVP.
+- Input signal detection is multi-value and internal. It is not a single-select UI.
+- The backend/AI should infer SPL, involved APIs, gateways, mesh hops, time clues, and failure evidence from the input and logs.
+
+## Result Context And Summary
+
+- The result context bar should show the original user input in full with wrapping.
+- Do not show `Test environment` or a single `API` field as investigation context.
+- Summary should include a related API / traffic-hop list because one investigation may involve gateway, istio, SAPI, downstream APIs, and external systems.
 
 ## Navigation
 
