@@ -18,7 +18,7 @@ public record UserSession(
         return status == SessionStatus.ACTIVE && expiresAt.isAfter(now);
     }
 
-    public UserSession touch(Instant now) {
+    public UserSession touch(Instant now, Instant expiresAt) {
         return new UserSession(sessionId, userId, username, splunkPassword, environment,
                 status, startedAt, expiresAt, now);
     }
@@ -26,6 +26,11 @@ public record UserSession(
     public UserSession logout(Instant now) {
         return new UserSession(sessionId, userId, username, null, environment,
                 SessionStatus.LOGGED_OUT, startedAt, now, now);
+    }
+
+    public UserSession expire(Instant now) {
+        return new UserSession(sessionId, userId, username, null, environment,
+                SessionStatus.EXPIRED, startedAt, now, now);
     }
 
     public enum SessionStatus {

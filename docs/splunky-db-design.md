@@ -455,12 +455,15 @@ Stores audit records for important operations.
 | `audit_id` | UUID | PK |
 | `user_id` | UUID | Optional FK |
 | `session_id` | UUID | Optional FK |
+| `staff_id` | VARCHAR(128) | Login staff ID copied for direct audit lookup |
 | `event_type` | VARCHAR(128) | Example: `SPLUNK_LOGIN`, `INVESTIGATION_CREATED`, `QUERY_EXECUTED` |
 | `target_type` | VARCHAR(128) | Optional |
 | `target_id` | UUID | Optional |
 | `summary` | TEXT | Short audit text |
 | `metadata_json` | JSONB | No raw logs or passwords |
 | `created_at` | TIMESTAMPTZ | Default now |
+
+Core metadata tables may also include `created_by_staff_id` and `updated_by_staff_id`. These fields use the Splunk login staff ID from the active `X-Splunky-Session-Id` and must not contain Splunk passwords or reusable auth tokens.
 
 ---
 
@@ -605,4 +608,3 @@ Recommended JPA naming approach:
 - Avoid Postgres enum types for MVP; use `VARCHAR` + check constraints.
 - Use JSONB columns via Hibernate JSON support or custom converter.
 - Keep raw Splunk logs out of entity models.
-

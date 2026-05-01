@@ -6,6 +6,7 @@ import com.wpb.spky.investigation.InvestigationDtos.Investigation;
 import com.wpb.spky.investigation.InvestigationDtos.StartInvestigationRequest;
 import com.wpb.spky.investigation.InvestigationService;
 import com.wpb.spky.session.SessionCredentialManager;
+import com.wpb.spky.session.UserSession;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,8 +36,8 @@ public class InvestigationController {
             @RequestHeader(value = FRONTEND_SESSION_HEADER, required = false) String frontendSessionId,
             @RequestHeader(value = API_SESSION_HEADER, required = false) String apiSessionId,
             @Valid @RequestBody StartInvestigationRequest request) {
-        sessions.require(SessionCredentialManager.resolveSessionId(frontendSessionId, apiSessionId));
-        return investigations.start(request);
+        UserSession session = sessions.require(SessionCredentialManager.resolveSessionId(frontendSessionId, apiSessionId));
+        return investigations.start(session, request);
     }
 
     @GetMapping("/{investigationId}")
@@ -54,7 +55,7 @@ public class InvestigationController {
             @RequestHeader(value = API_SESSION_HEADER, required = false) String apiSessionId,
             @PathVariable String investigationId,
             @Valid @RequestBody FollowUpRequest request) {
-        sessions.require(SessionCredentialManager.resolveSessionId(frontendSessionId, apiSessionId));
-        return investigations.followUp(investigationId, request);
+        UserSession session = sessions.require(SessionCredentialManager.resolveSessionId(frontendSessionId, apiSessionId));
+        return investigations.followUp(session, investigationId, request);
     }
 }

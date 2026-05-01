@@ -52,10 +52,12 @@ public class JdbcSessionMetadataStore implements SessionMetadataStore {
     public void recordTouched(UserSession session) {
         jdbc.sql("""
                 update spky_user_session
-                set last_activity_at = :lastActivityAt
+                set last_activity_at = :lastActivityAt,
+                    expires_at = :expiresAt
                 where session_id = :sessionId
                 """)
                 .param("lastActivityAt", ts(session.lastActivityAt()))
+                .param("expiresAt", ts(session.expiresAt()))
                 .param("sessionId", session.sessionId())
                 .update();
     }
@@ -79,18 +81,22 @@ public class JdbcSessionMetadataStore implements SessionMetadataStore {
     private UUID ensureUser(UserSession session) {
         return jdbc.sql("""
                 insert into spky_user_account (
-                    user_id, username, display_name, status, last_login_at, created_at, updated_at
+                    user_id, username, display_name, status, last_login_at,
+                    created_by_staff_id, updated_by_staff_id, created_at, updated_at
                 ) values (
-                    :userId, :username, :displayName, 'ACTIVE', :lastLoginAt, now(), now()
+                    :userId, :username, :displayName, 'ACTIVE', :lastLoginAt,
+                    :staffId, :staffId, now(), now()
                 )
                 on conflict (username) do update set
                     last_login_at = excluded.last_login_at,
+                    updated_by_staff_id = excluded.updated_by_staff_id,
                     updated_at = now()
                 returning user_id
                 """)
                 .param("userId", session.userId())
                 .param("username", session.username())
                 .param("displayName", session.username())
+                .param("staffId", session.username())
                 .param("lastLoginAt", ts(session.startedAt()))
                 .query((rs, rowNum) -> rs.getObject("user_id", UUID.class))
                 .single();

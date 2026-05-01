@@ -18,7 +18,7 @@ public record SplunkyProperties(
     }
 
     public int sessionTtlMinutes() {
-        return session == null || session.ttlMinutes() == null ? 480 : session.ttlMinutes();
+        return session == null || session.ttlMinutes() == null ? 30 : session.ttlMinutes();
     }
 
     public boolean acceptFrontendGeneratedSessions() {

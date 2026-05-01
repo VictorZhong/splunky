@@ -38,7 +38,7 @@ splunky:
     # before storing real credentials outside local development.
     secret-key: ${SPKY_SECRET_KEY:}
   session:
-    ttl-minutes: ${SPKY_SESSION_TTL_MINUTES:480}
+    ttl-minutes: ${SPKY_SESSION_TTL_MINUTES:30}
     # Compatibility bridge for the current frontend mock, which generates a
     # session ID in browser storage before backend login is wired.
     accept-frontend-generated-sessions: ${SPKY_ACCEPT_FRONTEND_SESSIONS:true}
@@ -62,3 +62,11 @@ splunky:
       api-key: ${REMOTE_LLM_API_KEY:}
       model: ${REMOTE_LLM_MODEL:gpt-5.4}
       max-completion-tokens: ${REMOTE_LLM_MAX_COMPLETION_TOKENS:2048}
+  splunk:
+    scheme: ${SPLUNK_SCHEME:https}
+    host: ${SPLUNK_HOST:digital-splunk-search.hk.zzzz}
+    port: ${SPLUNK_PORT:8089}
+    trust-all-ssl: ${SPLUNK_TRUST_ALL_SSL:true}
+    job-ttl-seconds: ${SPLUNK_JOB_TTL_SECONDS:1800}
+    max-auth-retry: ${SPLUNK_MAX_AUTH_RETRY:3}
+    result-row-limit: ${SPLUNK_RESULT_ROW_LIMIT:0}

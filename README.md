@@ -42,6 +42,14 @@ export LLM_PROXY_URL=http://username:password@proxy-host:80
 export LLM_MODEL=gpt-5.4
 ```
 
+Splunk SDK configuration defaults to the internal HTTPS search head and management port:
+
+```sh
+export SPLUNK_HOST=digital-splunk-search.hk.zzzz
+export SPLUNK_PORT=8089
+export SPLUNK_TRUST_ALL_SSL=true
+```
+
 See `docs/splunky-backend-notes.md` and `TODO.md` for current backend scope and next steps.
 
 ## Local PostgreSQL

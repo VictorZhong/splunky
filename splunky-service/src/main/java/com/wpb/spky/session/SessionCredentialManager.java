@@ -1,8 +1,11 @@
 package com.wpb.spky.session;
 
 import com.wpb.spky.config.SplunkyProperties;
+import com.wpb.spky.persistence.AuditEventStore;
+import com.wpb.spky.persistence.NoopAuditEventStore;
 import com.wpb.spky.persistence.NoopSessionMetadataStore;
 import com.wpb.spky.persistence.SessionMetadataStore;
+import com.wpb.spky.splunk.SplunkSessionService;
 import com.wpb.spky.session.SessionDtos.SessionResponse;
 import com.wpb.spky.session.SessionDtos.UserProfile;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,8 +17,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -27,21 +32,35 @@ public class SessionCredentialManager {
     private final Duration ttl;
     private final boolean acceptFrontendGeneratedSessions;
     private final SessionMetadataStore sessionMetadata;
+    private final AuditEventStore auditEvents;
+    private final SplunkSessionService splunkSessions;
 
     @Autowired
-    public SessionCredentialManager(SplunkyProperties properties, SessionMetadataStore sessionMetadata) {
-        this(properties, Clock.systemUTC(), sessionMetadata);
+    public SessionCredentialManager(SplunkyProperties properties, SessionMetadataStore sessionMetadata,
+                                    AuditEventStore auditEvents, SplunkSessionService splunkSessions) {
+        this(properties, Clock.systemUTC(), sessionMetadata, auditEvents, splunkSessions);
     }
 
     SessionCredentialManager(SplunkyProperties properties, Clock clock) {
-        this(properties, clock, new NoopSessionMetadataStore());
+        this(properties, clock, new NoopSessionMetadataStore(), new NoopAuditEventStore(), null);
+    }
+
+    SessionCredentialManager(SplunkyProperties properties, SessionMetadataStore sessionMetadata) {
+        this(properties, Clock.systemUTC(), sessionMetadata, new NoopAuditEventStore(), null);
     }
 
     SessionCredentialManager(SplunkyProperties properties, Clock clock, SessionMetadataStore sessionMetadata) {
+        this(properties, clock, sessionMetadata, new NoopAuditEventStore(), null);
+    }
+
+    SessionCredentialManager(SplunkyProperties properties, Clock clock, SessionMetadataStore sessionMetadata,
+                             AuditEventStore auditEvents, SplunkSessionService splunkSessions) {
         this.clock = clock;
         this.ttl = Duration.ofMinutes(properties.sessionTtlMinutes());
         this.acceptFrontendGeneratedSessions = properties.acceptFrontendGeneratedSessions();
         this.sessionMetadata = sessionMetadata;
+        this.auditEvents = auditEvents;
+        this.splunkSessions = splunkSessions;
     }
 
     public SessionResponse start(String username, String password, String environment) {
@@ -56,19 +75,18 @@ public class SessionCredentialManager {
                 normalizeEnvironment(environment), UserSession.SessionStatus.ACTIVE, now, now.plus(ttl), now);
         sessions.put(sessionId, session);
         sessionMetadata.recordStarted(session);
+        auditEvents.record(session, "SESSION_LOGIN", "SESSION", session.sessionId(),
+                "Splunky session started", Map.of("environment", session.environment()));
         return toResponse(session);
     }
 
     public Optional<SessionResponse> find(String rawSessionId) {
         UUID sessionId = parseSessionId(rawSessionId);
         if (sessionId == null) return Optional.empty();
-        UserSession session = sessions.get(sessionId);
-        if (session == null) return Optional.empty();
-        if (!session.isActive(clock.instant())) return Optional.empty();
-        UserSession touched = session.touch(clock.instant());
-        sessions.put(sessionId, touched);
-        sessionMetadata.recordTouched(touched);
-        return Optional.of(toResponse(touched));
+        UserSession session = touchExistingSession(sessionId, false);
+        return session == null || session.status() != UserSession.SessionStatus.ACTIVE
+                ? Optional.empty()
+                : Optional.of(toResponse(session));
     }
 
     public UserSession require(String rawSessionId) {
@@ -77,22 +95,12 @@ public class SessionCredentialManager {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing or invalid Splunky session.");
         }
 
-        Instant now = clock.instant();
-        UserSession existing = sessions.get(sessionId);
-        if (existing == null && acceptFrontendGeneratedSessions) {
-            existing = createFrontendCompatibilitySession(sessionId, now);
-            sessions.put(sessionId, existing);
-            sessionMetadata.recordStarted(existing);
-        }
-        if (existing == null || !existing.isActive(now)) {
+        UserSession session = touchExistingSession(sessionId, acceptFrontendGeneratedSessions);
+        if (session == null || session.status() != UserSession.SessionStatus.ACTIVE) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
                     "Splunk credentials may be invalid or the session expired. Please log in again.");
         }
-
-        UserSession touched = existing.touch(now);
-        sessions.put(sessionId, touched);
-        sessionMetadata.recordTouched(touched);
-        return touched;
+        return session;
     }
 
     public void logout(String rawSessionId) {
@@ -105,6 +113,9 @@ public class SessionCredentialManager {
         UserSession loggedOut = session.logout(clock.instant());
         sessions.put(sessionId, loggedOut);
         sessionMetadata.recordEnded(loggedOut);
+        invalidateSplunkSession(loggedOut.sessionId());
+        auditEvents.record(loggedOut, "SESSION_LOGOUT", "SESSION", loggedOut.sessionId(),
+                "Splunky session ended", Map.of("environment", loggedOut.environment()));
     }
 
     public static String resolveSessionId(String splunkyHeader, String spkyHeader) {
@@ -122,6 +133,56 @@ public class SessionCredentialManager {
                 session.expiresAt(),
                 session.lastActivityAt()
         );
+    }
+
+    private UserSession touchExistingSession(UUID sessionId, boolean allowCompatibilitySession) {
+        Instant now = clock.instant();
+        AtomicReference<UserSession> created = new AtomicReference<>();
+        AtomicReference<UserSession> touched = new AtomicReference<>();
+        AtomicReference<UserSession> expired = new AtomicReference<>();
+
+        UserSession current = sessions.compute(sessionId, (id, existing) -> {
+            UserSession local = existing;
+            if (local == null && allowCompatibilitySession) {
+                local = createFrontendCompatibilitySession(sessionId, now);
+                created.set(local);
+            }
+            if (local == null) return null;
+            if (local.status() == UserSession.SessionStatus.ACTIVE && !local.expiresAt().isAfter(now)) {
+                UserSession next = local.expire(now);
+                expired.set(next);
+                return next;
+            }
+            if (local.status() != UserSession.SessionStatus.ACTIVE) {
+                return local;
+            }
+            UserSession next = local.touch(now, now.plus(ttl));
+            touched.set(next);
+            return next;
+        });
+
+        UserSession createdSession = created.get();
+        if (createdSession != null) {
+            sessionMetadata.recordStarted(createdSession);
+        }
+        UserSession expiredSession = expired.get();
+        if (expiredSession != null) {
+            sessionMetadata.recordEnded(expiredSession);
+            invalidateSplunkSession(expiredSession.sessionId());
+            auditEvents.record(expiredSession, "SESSION_EXPIRED", "SESSION", expiredSession.sessionId(),
+                    "Splunky session expired after idle timeout", Map.of("environment", expiredSession.environment()));
+        }
+        UserSession touchedSession = touched.get();
+        if (touchedSession != null) {
+            sessionMetadata.recordTouched(touchedSession);
+        }
+        return current;
+    }
+
+    private void invalidateSplunkSession(UUID sessionId) {
+        if (splunkSessions != null) {
+            splunkSessions.invalidate(sessionId);
+        }
     }
 
     private UserSession createFrontendCompatibilitySession(UUID sessionId, Instant now) {
