@@ -33,10 +33,6 @@ logging:
 splunky:
   persistence:
     enabled: ${SPKY_PERSISTENCE_ENABLED:true}
-  crypto:
-    # Development fallback. Set SPKY_SECRET_KEY to a base64-encoded 32-byte key
-    # before storing real credentials outside local development.
-    secret-key: ${SPKY_SECRET_KEY:}
   session:
     ttl-minutes: ${SPKY_SESSION_TTL_MINUTES:30}
     # Compatibility bridge for the current frontend mock, which generates a
@@ -66,9 +62,16 @@ splunky:
       model: ${REMOTE_LLM_MODEL:gpt-5.4}
       max-completion-tokens: ${REMOTE_LLM_MAX_COMPLETION_TOKENS:2048}
   splunk:
+    # Legacy single-endpoint defaults (used as fallback when env URL is missing)
     scheme: ${SPLUNK_SCHEME:https}
     host: ${SPLUNK_HOST:digital-splunk-search.hk.zzzz}
     port: ${SPLUNK_PORT:8089}
+    # Environment routing
+    default-environment: ${SPLUNK_DEFAULT_ENV:DEV}
+    environments:
+      DEV: ${SPLUNK_DEV_URL:https://digital-splunk-search.hk.zzzz:8089}
+      PROD_ON_PREM: ${SPLUNK_PROD_ON_PREM_URL:https://splunk-onprem.example.com:8089}
+      PROD_AWS: ${SPLUNK_PROD_AWS_URL:https://splunk-aws.example.com:8089}
     trust-all-ssl: ${SPLUNK_TRUST_ALL_SSL:true}
     job-ttl-seconds: ${SPLUNK_JOB_TTL_SECONDS:1800}
     max-auth-retry: ${SPLUNK_MAX_AUTH_RETRY:3}

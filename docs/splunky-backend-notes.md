@@ -149,7 +149,7 @@ The response currently fills Summary, Raw Logs preview, and Query Inspector. Tim
 
 ## Credential Handling
 
-`JdbcLlmCredentialStore` is used by default.
+`JpaLlmCredentialStore` is used by default.
 
 Supported sources:
 
@@ -157,9 +157,9 @@ Supported sources:
 - `COPILOT_SESSION_TOKEN` as temporary bootstrap session token
 - `PUT /api/llm-credential` for runtime replacement
 
-Secrets are encrypted before storage in `spky_llm_credential`. The store returns only a non-sensitive fingerprint. It never returns the raw secret.
-
-Set `SPKY_SECRET_KEY` to a base64-encoded 32-byte key before storing real credentials outside local development. Without it, the backend uses a local development key and logs a warning.
+Secrets are stored as plaintext in `spky_llm_credential` (`encrypted_secret` column name is historical).
+The refreshed Copilot session token is also stored in the same table.
+The store returns status and fingerprint metadata via API, and never returns raw secret in status payload.
 
 ## Copilot Refresh
 

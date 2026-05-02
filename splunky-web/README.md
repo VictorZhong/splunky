@@ -15,6 +15,12 @@ The login form calls backend `/api/sessions/splunk-login` and uses the returned
 session ID for authenticated API calls. In `mockMode=on`, MSW mocks both
 session endpoints and investigation endpoints for frontend-only development.
 
+Splunk environment options in login:
+
+- `DEV` → `https://digital-splunk-search.hk.zzzz:8089`
+- `Prod - On-prem` → `https://splunk-onprem.example.com:8089`
+- `Prod - AWS` → `https://splunk-aws.example.com:8089`
+
 ## Environment Configuration
 
 Build-time defaults live in:

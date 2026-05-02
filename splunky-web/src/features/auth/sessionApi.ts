@@ -13,7 +13,7 @@ export class SessionApiError extends Error {
 type SplunkLoginRequest = {
   splunkUsername: string
   splunkPassword: string
-  environment: string
+  environment: 'DEV' | 'PROD_ON_PREM' | 'PROD_AWS'
 }
 
 type SessionResponse = {

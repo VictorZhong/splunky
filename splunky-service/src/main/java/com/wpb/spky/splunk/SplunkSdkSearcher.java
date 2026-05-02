@@ -7,6 +7,7 @@ import com.splunk.JobArgs;
 import com.splunk.JobResultsArgs;
 import com.splunk.ResultsReaderJson;
 import com.splunk.Service;
+import com.wpb.spky.config.SplunkProperties.SplunkEndpoint;
 import com.wpb.spky.config.SplunkProperties;
 import com.wpb.spky.persistence.AuditEventStore;
 import com.wpb.spky.session.UserSession;
@@ -54,7 +55,7 @@ public class SplunkSdkSearcher implements SplunkSearcher {
         try {
             Service service = sessions.getService(session);
             Job job = createJobWithAuthRetry(session, service, request);
-            SplunkSearchResult result = readJobResults(job, started, request.sourceUrl());
+            SplunkSearchResult result = readJobResults(session, job, started, request.sourceUrl());
             auditEvents.record(session, "SPLUNK_QUERY_EXECUTED", "SPLUNK_JOB", null,
                     "Splunk query completed", Map.of(
                             "sid", nullToEmpty(result.sid()),
@@ -83,7 +84,7 @@ public class SplunkSdkSearcher implements SplunkSearcher {
             Service service = sessions.getService(session);
             Job job = getJobWithAuthRetry(session, service, sid.trim());
             waitForSidIfNeeded(job);
-            SplunkSearchResult result = readJobResults(job, started, splunkUrl);
+            SplunkSearchResult result = readJobResults(session, job, started, splunkUrl);
             auditEvents.record(session, "SPLUNK_URL_IMPORTED", "SPLUNK_JOB", null,
                     "Splunk URL results imported", Map.of(
                             "sid", sid.trim(),
@@ -167,7 +168,7 @@ public class SplunkSdkSearcher implements SplunkSearcher {
         }
     }
 
-    private SplunkSearchResult readJobResults(Job job, Instant started, String sourceUrl) {
+    private SplunkSearchResult readJobResults(UserSession session, Job job, Instant started, String sourceUrl) {
         JobResultsArgs args = new JobResultsArgs();
         args.setOutputMode(JobResultsArgs.OutputMode.JSON);
         args.setCount(properties.resultRowLimitOrDefault());
@@ -198,14 +199,15 @@ public class SplunkSdkSearcher implements SplunkSearcher {
                 job.getRunDuration(),
                 Duration.between(started, Instant.now()).toMillis(),
                 List.copyOf(rows),
-                sourceUrl == null || sourceUrl.isBlank() ? apiJobUrl(job.getSid()) : sourceUrl
+                sourceUrl == null || sourceUrl.isBlank() ? apiJobUrl(session, job.getSid()) : sourceUrl
         );
     }
 
-    private String apiJobUrl(String sid) {
+    private String apiJobUrl(UserSession session, String sid) {
         if (sid == null || sid.isBlank()) return null;
-        return properties.schemeOrDefault() + "://" + properties.hostOrDefault() + ":"
-                + properties.portOrDefault() + "/services/search/jobs/" + sid;
+        SplunkEndpoint endpoint = properties.endpointForEnvironment(session.environment());
+        return endpoint.scheme() + "://" + endpoint.host() + ":"
+                + endpoint.port() + "/services/search/jobs/" + sid;
     }
 
     private static void validateSearch(String spl) {

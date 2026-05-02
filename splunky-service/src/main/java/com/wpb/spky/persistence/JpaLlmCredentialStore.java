@@ -26,14 +26,11 @@ public class JpaLlmCredentialStore implements LlmCredentialStore {
 
     private final SpkyLlmCredentialJpaRepository credentials;
     private final SpkyUserAccountJpaRepository userAccounts;
-    private final SecretCipher cipher;
 
     public JpaLlmCredentialStore(SpkyLlmCredentialJpaRepository credentials,
-                                 SpkyUserAccountJpaRepository userAccounts,
-                                 SecretCipher cipher) {
+                                 SpkyUserAccountJpaRepository userAccounts) {
         this.credentials = credentials;
         this.userAccounts = userAccounts;
-        this.cipher = cipher;
     }
 
     @Override
@@ -53,11 +50,11 @@ public class JpaLlmCredentialStore implements LlmCredentialStore {
         String fingerprint = null;
         for (SpkyLlmCredentialEntity row : rows) {
             if (API_KEY.equals(row.getCredentialType())) {
-                apiKey = cipher.decrypt(row.getEncryptedSecret());
+                apiKey = row.getEncryptedSecret();
                 fingerprint = firstNonBlank(fingerprint, row.getSecretFingerprint());
             }
             if (SESSION_TOKEN.equals(row.getCredentialType())) {
-                sessionToken = cipher.decrypt(row.getEncryptedSecret());
+                sessionToken = row.getEncryptedSecret();
                 sessionExpiresAt = row.getExpiresAt();
                 lastRefreshedAt = row.getLastRefreshedAt();
                 fingerprint = firstNonBlank(fingerprint, row.getSecretFingerprint());
@@ -117,7 +114,7 @@ public class JpaLlmCredentialStore implements LlmCredentialStore {
             entity.setCreatedAt(Instant.now());
         }
 
-        entity.setEncryptedSecret(cipher.encrypt(secret));
+        entity.setEncryptedSecret(secret);
         entity.setSecretFingerprint(SecretCipher.fingerprint(secret));
         entity.setExpiresAt(expiresAt);
         entity.setLastRefreshedAt(lastRefreshedAt);

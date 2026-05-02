@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Form, Input, Layout, Typography } from 'antd'
+import { Alert, Button, Card, Form, Input, Layout, Select, Table, Typography } from 'antd'
 import { useState } from 'react'
 import {
   FileSearch,
@@ -12,11 +12,12 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useSessionStore } from './sessionStore'
 import { loginSession, SessionApiError } from './sessionApi'
 import type { LucideIcon } from 'lucide-react'
+import { splunkEnvironmentOptions } from './splunkEnvironments'
 
 interface LoginFormValues {
   username: string
   password: string
-  environment: string
+  environment: 'DEV' | 'PROD_ON_PREM' | 'PROD_AWS'
 }
 
 const featureHighlights: Array<{
@@ -59,7 +60,7 @@ export function LoginPage() {
       const response = await loginSession({
         splunkUsername: values.username.trim(),
         splunkPassword: values.password,
-        environment: values.environment.trim().toUpperCase(),
+        environment: values.environment,
       })
       setSession({
         sessionId: response.sessionId,
@@ -124,13 +125,24 @@ export function LoginPage() {
             title="Splunky queries Splunk as you"
             description="Your password is used only for the current session and is not saved. It expires immediately after logout, and the session also expires after 30 minutes of inactivity."
           />
+          <Table
+            className="mb-4"
+            size="small"
+            pagination={false}
+            dataSource={splunkEnvironmentOptions}
+            rowKey="code"
+            columns={[
+              { title: 'Environment', dataIndex: 'label', key: 'label' },
+              { title: 'Splunk URL', dataIndex: 'url', key: 'url' },
+            ]}
+          />
           {submitError ? (
             <Alert className="mb-4" type="error" showIcon message={submitError} />
           ) : null}
           <Form<LoginFormValues>
             layout="vertical"
             onFinish={submit}
-            initialValues={{ environment: 'SIT' }}
+            initialValues={{ environment: 'DEV' }}
           >
             <Form.Item
               label="Username"
@@ -146,9 +158,14 @@ export function LoginPage() {
             <Form.Item
               label="Environment"
               name="environment"
-              rules={[{ required: true, message: 'Enter target environment.' }]}
+              rules={[{ required: true, message: 'Select target environment.' }]}
             >
-              <Input placeholder="e.g. SIT / UAT / PROD" />
+              <Select
+                options={splunkEnvironmentOptions.map((env) => ({
+                  label: env.label,
+                  value: env.code,
+                }))}
+              />
             </Form.Item>
             <Form.Item
               label="Password"

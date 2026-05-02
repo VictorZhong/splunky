@@ -45,6 +45,9 @@ export LLM_PROXY_URL=http://username:password@proxy-host:80
 export LLM_MODEL=gpt-5.4
 ```
 
+LLM API key and refreshed Copilot session token are stored in `spky_llm_credential`
+as plaintext values for operational simplicity.
+
 Splunk SDK configuration defaults to the internal HTTPS search head and management port:
 
 ```sh

@@ -114,7 +114,7 @@ paths:
       tags: [LLM Credential]
       summary: Save or replace current user's LLM credential
       description: |
-        Stores an encrypted user LLM credential/API key. The raw secret must never be returned by any API.
+        Stores user LLM credential/API key in persistence and never returns raw secret via status APIs.
       operationId: upsertLlmCredential
       requestBody:
         required: true

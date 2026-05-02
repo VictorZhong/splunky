@@ -4,6 +4,7 @@ import com.splunk.HttpService;
 import com.splunk.Service;
 import com.splunk.ServiceArgs;
 import com.wpb.spky.config.SplunkProperties;
+import com.wpb.spky.config.SplunkProperties.SplunkEndpoint;
 import com.wpb.spky.session.UserSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,24 +54,25 @@ public class SplunkSessionService {
     private Service connect(UserSession session) {
         configureTrustAllSslIfNeeded();
         long started = System.currentTimeMillis();
+        SplunkEndpoint endpoint = properties.endpointForEnvironment(session.environment());
         ServiceArgs args = new ServiceArgs();
         args.setUsername(session.username());
         args.setPassword(session.splunkPassword());
-        args.setScheme(properties.schemeOrDefault());
-        args.setHost(properties.hostOrDefault());
-        args.setPort(properties.portOrDefault());
+        args.setScheme(endpoint.scheme());
+        args.setHost(endpoint.host());
+        args.setPort(endpoint.port());
 
         try {
-            log.info("Initialising Splunk service for host={} staffId={}",
-                    properties.hostOrDefault(), session.username());
+            log.info("Initialising Splunk service for env={} host={} staffId={}",
+                    endpoint.environment(), endpoint.host(), session.username());
             Service service = Service.connect(args);
             service.login();
-            log.info("Splunk login succeeded for staffId={} in {}ms",
-                    session.username(), System.currentTimeMillis() - started);
+            log.info("Splunk login succeeded for env={} staffId={} in {}ms",
+                    endpoint.environment(), session.username(), System.currentTimeMillis() - started);
             return service;
         } catch (Exception ex) {
-            log.error("Splunk login failed for staffId={} host={}: {}",
-                    session.username(), properties.hostOrDefault(), ex.getMessage(), ex);
+            log.error("Splunk login failed for env={} staffId={} host={}: {}",
+                    endpoint.environment(), session.username(), endpoint.host(), ex.getMessage(), ex);
             throw new SplunkConnectivityException("Error occurred in Splunk login", ex);
         }
     }
