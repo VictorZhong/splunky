@@ -2,6 +2,7 @@ import { Avatar, Button, Dropdown, Layout, Space, Typography } from 'antd'
 import { BookOpen, LogOut, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '../../features/auth/sessionStore'
+import { buildAppUrl } from '../../app/config'
 
 const { Header } = Layout
 
@@ -16,7 +17,7 @@ export function AppHeader({ showNewSearch = false }: AppHeaderProps) {
   const initials = session?.username.slice(0, 2).toUpperCase() ?? 'SP'
 
   function openNewSearchTab() {
-    window.open('/', '_blank')?.focus()
+    window.open(buildAppUrl('/'), '_blank')?.focus()
   }
 
   function handleLogout() {

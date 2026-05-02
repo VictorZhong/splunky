@@ -1,5 +1,7 @@
+import { isMockModeEnabled } from '../app/config'
+
 export async function enableMocking() {
-  if (!import.meta.env.DEV) {
+  if (!isMockModeEnabled()) {
     return
   }
 

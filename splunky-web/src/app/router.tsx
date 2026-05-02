@@ -5,6 +5,7 @@ import { LoginPage } from '../features/auth/LoginPage'
 import { ProtectedRoute } from '../features/auth/ProtectedRoute'
 import { SessionTimeoutWatcher } from '../features/auth/SessionTimeoutWatcher'
 import { UnauthorizedHandler } from '../features/auth/UnauthorizedHandler'
+import { appConfig } from './config'
 
 const InvestigationInputPage = lazy(() =>
   import('../pages/InvestigationPage/InvestigationInputPage').then((module) => ({
@@ -27,7 +28,7 @@ function RouteFallback() {
 
 export function AppRouter() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={appConfig.routerBasename}>
       <UnauthorizedHandler />
       <SessionTimeoutWatcher />
       <Suspense fallback={<RouteFallback />}>

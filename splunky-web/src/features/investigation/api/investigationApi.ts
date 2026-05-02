@@ -6,6 +6,7 @@ import type {
 } from '../types'
 import { getCurrentSession } from '../../auth/sessionStore'
 import { unauthorizedEventName } from '../../auth/authEvents'
+import { buildApiUrl } from '../../../app/config'
 
 export class ApiError extends Error {
   status: number
@@ -46,7 +47,7 @@ function authHeaders() {
 export async function startInvestigation(
   request: StartInvestigationRequest,
 ): Promise<Investigation> {
-  const response = await fetch('/api/investigations', {
+  const response = await fetch(buildApiUrl('/investigations'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(request),
@@ -56,7 +57,7 @@ export async function startInvestigation(
 }
 
 export async function getInvestigation(id: string): Promise<Investigation> {
-  const response = await fetch(`/api/investigations/${id}`, {
+  const response = await fetch(buildApiUrl(`/investigations/${id}`), {
     headers: authHeaders(),
   })
   return parseResponse<Investigation>(response)
@@ -66,11 +67,14 @@ export async function submitFollowUp(
   investigationId: string,
   request: FollowUpRequest,
 ): Promise<FollowUpResponse> {
-  const response = await fetch(`/api/investigations/${investigationId}/follow-ups`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(request),
-  })
+  const response = await fetch(
+    buildApiUrl(`/investigations/${investigationId}/follow-ups`),
+    {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(request),
+    },
+  )
 
   return parseResponse<FollowUpResponse>(response)
 }

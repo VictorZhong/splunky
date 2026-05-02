@@ -45,3 +45,12 @@
 - Query page does not show a new-search action in the header.
 - Workspace page shows `New Search`.
 - `New Search` opens `/` in a new browser tab so the current investigation is not discarded.
+
+## Frontend Configuration And PCF
+
+- Build-time defaults live in `.env.development`, `.env.production`, and `.env.example`.
+- Runtime overrides live in `public/config/splunky-config.js`; this is useful on PCF because the same static bundle can be pointed at a different backend URL.
+- Supported frontend config keys are `mockMode`, `apiBaseUrl`, `routerBasename`, and `VITE_APP_BASE_PATH`.
+- `mockMode=on` uses MSW and same-origin `/api` URLs. `mockMode=off` calls the configured backend API URL.
+- PCF Staticfile deployment should use `pushstate: enabled` so `/login` and `/investigations/:id` do not 404 on browser refresh.
+- If deployed below a path prefix, set both Vite base path and React Router basename, for example `VITE_APP_BASE_PATH=/splunky/` and `VITE_ROUTER_BASENAME=/splunky`.
