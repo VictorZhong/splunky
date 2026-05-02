@@ -8,8 +8,7 @@ import com.wpb.spky.config.SplunkyProperties;
 import com.wpb.spky.llm.LlmCompletionResponse.ToolCall;
 import com.wpb.spky.llm.LlmCredentialStore.Credential;
 import jakarta.annotation.PostConstruct;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -25,10 +24,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Component
 public class CopilotPersonalLlmProvider implements LlmProvider {
-
-    private static final Logger log = LoggerFactory.getLogger(CopilotPersonalLlmProvider.class);
 
     private static final String API_VERSION = "2025-04-01";
     private static final String EDITOR_PLUGIN_VERSION = "copilot.vim/1.16.0";
@@ -37,6 +35,8 @@ public class CopilotPersonalLlmProvider implements LlmProvider {
 
     private final LlmCredentialStore credentials;
     private final ObjectMapper mapper;
+    private final String bootstrapApiKey;
+    private final String bootstrapSessionToken;
     private final String model;
     private final int maxCompletionTokens;
     private final String editorVersion;
@@ -52,6 +52,8 @@ public class CopilotPersonalLlmProvider implements LlmProvider {
         SplunkyProperties.CopilotProperties copilot = properties.llmOrDefaults().copilotOrDefaults();
         this.credentials = credentials;
         this.mapper = mapper;
+        this.bootstrapApiKey = nullIfBlank(copilot.bootstrapApiKey());
+        this.bootstrapSessionToken = nullIfBlank(copilot.bootstrapSessionToken());
         this.model = copilot.modelOrDefault();
         this.maxCompletionTokens = copilot.maxCompletionTokensOrDefault();
         this.editorVersion = copilot.editorVersionOrDefault();
@@ -63,10 +65,21 @@ public class CopilotPersonalLlmProvider implements LlmProvider {
 
     @PostConstruct
     public void logConfiguration() {
-        if (credentials.find(LlmProviderType.COPILOT_PERSONAL).isEmpty()) {
-            log.info("Copilot Personal: no credential configured; provider unavailable until API key is supplied.");
+        if (bootstrapApiKey != null || bootstrapSessionToken != null) {
+            credentials.bootstrapIfMissing(
+                    LlmProviderType.COPILOT_PERSONAL,
+                    bootstrapApiKey,
+                    bootstrapSessionToken
+            );
+        }
+
+        Credential credential = credentials.find(LlmProviderType.COPILOT_PERSONAL).orElse(null);
+        if (credential == null) {
+            log.info("Copilot Personal: no credential row in spky_llm_credential; provider unavailable until configured.");
+        } else if (!credential.hasApiKey() && !credential.hasSessionToken()) {
+            log.info("Copilot Personal: credential row exists but has no api_key/session_token.");
         } else {
-            log.info("Copilot Personal: credential loaded.");
+            log.info("Copilot Personal: credentials loaded from spky_llm_credential.");
         }
         if (proxy.enabled()) {
             log.info("Copilot Personal: outbound proxy configured at {}://{}:{} auth={}",
@@ -157,7 +170,7 @@ public class CopilotPersonalLlmProvider implements LlmProvider {
     private String ensureSessionToken() {
         Credential credential = credentials.find(LlmProviderType.COPILOT_PERSONAL)
                 .orElseThrow(() -> new IllegalStateException(
-                        "Copilot Personal provider is not configured. Set LLM_API_KEY or use /api/llm-credential."));
+                        "Copilot Personal provider is not configured. Insert a row into spky_llm_credential or bootstrap with LLM_API_KEY."));
         Instant now = Instant.now();
         if (credential.hasFreshSessionToken(now)) return credential.sessionToken();
         if (!credential.hasApiKey()) {
@@ -281,6 +294,10 @@ public class CopilotPersonalLlmProvider implements LlmProvider {
             throw new IllegalStateException(propertyName + " must be configured.");
         }
         return value;
+    }
+
+    private static String nullIfBlank(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private static String trimTrailingSlash(String value) {

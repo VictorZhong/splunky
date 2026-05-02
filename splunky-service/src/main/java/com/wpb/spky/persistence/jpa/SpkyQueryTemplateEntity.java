@@ -4,11 +4,15 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.UUID;
 
 @Entity
 @Table(name = "spky_query_template")
+@Getter
+@Setter
 public class SpkyQueryTemplateEntity {
 
     @Id
@@ -38,23 +42,4 @@ public class SpkyQueryTemplateEntity {
 
     @Column(name = "enabled", nullable = false)
     private boolean enabled;
-
-    public UUID getTemplateId() { return templateId; }
-    public void setTemplateId(UUID templateId) { this.templateId = templateId; }
-    public String getTemplateKey() { return templateKey; }
-    public void setTemplateKey(String templateKey) { this.templateKey = templateKey; }
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
-    public String getTemplateSpl() { return templateSpl; }
-    public void setTemplateSpl(String templateSpl) { this.templateSpl = templateSpl; }
-    public int getDefaultTimeWindowMinutes() { return defaultTimeWindowMinutes; }
-    public void setDefaultTimeWindowMinutes(int defaultTimeWindowMinutes) { this.defaultTimeWindowMinutes = defaultTimeWindowMinutes; }
-    public int getMaxTimeWindowMinutes() { return maxTimeWindowMinutes; }
-    public void setMaxTimeWindowMinutes(int maxTimeWindowMinutes) { this.maxTimeWindowMinutes = maxTimeWindowMinutes; }
-    public int getMaxResultCount() { return maxResultCount; }
-    public void setMaxResultCount(int maxResultCount) { this.maxResultCount = maxResultCount; }
-    public boolean isEnabled() { return enabled; }
-    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 }

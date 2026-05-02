@@ -1,4 +1,6 @@
 -- Splunky initial database schema
+-- Historical baseline only. The current effective LLM credential shape is
+-- simplified by V4__simplify_llm_credential_storage.sql.
 -- Target: PostgreSQL 16
 -- Backend: Java 17 + Spring Boot 3
 -- Notes:

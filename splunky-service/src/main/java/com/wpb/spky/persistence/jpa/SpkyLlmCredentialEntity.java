@@ -1,92 +1,45 @@
 package com.wpb.spky.persistence.jpa;
 
+import com.wpb.spky.llm.LlmProviderType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
-import java.util.UUID;
+import java.util.HashMap;
+import java.util.Map;
 
 @Entity
 @Table(name = "spky_llm_credential")
+@Getter
+@Setter
 public class SpkyLlmCredentialEntity {
 
     @Id
-    @Column(name = "credential_id", nullable = false)
-    private UUID credentialId;
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private LlmProviderType provider;
 
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    @Column(name = "api_key", columnDefinition = "text")
+    private String apiKey;
 
-    @Column(name = "provider", nullable = false)
-    private String provider;
+    @Column(name = "session_token", columnDefinition = "text")
+    private String sessionToken;
 
-    @Column(name = "credential_type", nullable = false)
-    private String credentialType;
+    @Column(name = "session_token_expires_at")
+    private Instant sessionTokenExpiresAt;
 
-    @Column(name = "encrypted_secret", nullable = false)
-    private String encryptedSecret;
-
-    @Column(name = "secret_fingerprint")
-    private String secretFingerprint;
-
-    @Column(name = "expires_at")
-    private Instant expiresAt;
-
-    @Column(name = "last_refreshed_at")
-    private Instant lastRefreshedAt;
-
-    @Column(name = "status", nullable = false)
-    private String status;
-
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "metadata_json", columnDefinition = "jsonb")
+    private Map<String, Object> metadata = new HashMap<>();
 
     @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
-
-    @PrePersist
-    void prePersist() {
-        Instant now = Instant.now();
-        if (createdAt == null) {
-            createdAt = now;
-        }
-        if (updatedAt == null) {
-            updatedAt = now;
-        }
-        if (status == null || status.isBlank()) {
-            status = "ACTIVE";
-        }
-    }
-
-    @PreUpdate
-    void preUpdate() {
-        updatedAt = Instant.now();
-    }
-
-    public UUID getCredentialId() { return credentialId; }
-    public void setCredentialId(UUID credentialId) { this.credentialId = credentialId; }
-    public UUID getUserId() { return userId; }
-    public void setUserId(UUID userId) { this.userId = userId; }
-    public String getProvider() { return provider; }
-    public void setProvider(String provider) { this.provider = provider; }
-    public String getCredentialType() { return credentialType; }
-    public void setCredentialType(String credentialType) { this.credentialType = credentialType; }
-    public String getEncryptedSecret() { return encryptedSecret; }
-    public void setEncryptedSecret(String encryptedSecret) { this.encryptedSecret = encryptedSecret; }
-    public String getSecretFingerprint() { return secretFingerprint; }
-    public void setSecretFingerprint(String secretFingerprint) { this.secretFingerprint = secretFingerprint; }
-    public Instant getExpiresAt() { return expiresAt; }
-    public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
-    public Instant getLastRefreshedAt() { return lastRefreshedAt; }
-    public void setLastRefreshedAt(Instant lastRefreshedAt) { this.lastRefreshedAt = lastRefreshedAt; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    private Instant updatedAt = Instant.now();
 }

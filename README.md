@@ -1,18 +1,25 @@
 # Splunky
 
-Splunky is an AI-assisted investigation workspace for test-environment API troubleshooting.
+Splunky is a summary-first Splunk investigation workspace for internal API troubleshooting.
+
+The current MVP is intentionally narrow:
+
+- log in with `environment + username + password`
+- run a Splunk-backed investigation from free text or a Splunk URL
+- send the returned log preview to the configured LLM
+- render one structured summary, raw log preview, and executed SPL
+
+Timeline, graph, sequence, downstream-call, and AI-assistant UI flows are deferred for now.
+
+## Repo Layout
+
+- `splunky-service`: Java 17 + Spring Boot backend
+- `splunky-web`: React + Vite frontend
+- `docs/`: current notes, API contract, and DB design
 
 ## Backend
 
-The backend scaffold lives in `splunky-service`.
-
-This machine already has Java 17 installed at:
-
-```sh
-/Users/victorzhong/Library/Java/JavaVirtualMachines/ms-17.0.15/Contents/Home
-```
-
-Use Java 17 explicitly when building or running the backend, because the default shell/Maven runtime may point at a newer JDK:
+Java 17 is required:
 
 ```sh
 cd splunky-service
@@ -20,9 +27,7 @@ JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn test
 JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn spring-boot:run
 ```
 
-The repo also includes `.java-version` with `17` for tools that honor it.
-
-The service starts on `http://localhost:8080` and exposes:
+The backend starts on `http://localhost:8080` and currently exposes:
 
 - `GET /actuator/health`
 - `POST /api/sessions/splunk-login`
@@ -32,35 +37,79 @@ The service starts on `http://localhost:8080` and exposes:
 - `GET /api/investigations/{id}`
 - `POST /api/investigations/{id}/follow-ups`
 - `GET /api/llm-credential/status`
-- `PUT /api/llm-credential`
+- `GET /api/query-templates`
 
-LLM configuration uses environment variables compatible with the `chat2pay` approach:
+Flyway owns the schema and JPA only validates it:
+
+- Flyway history table: `spky_flyway_schema_history`
+- migrations: `splunky-service/src/main/resources/db/migration`
+- JPA mode: `ddl-auto: validate`
+
+## Frontend
+
+```sh
+cd splunky-web
+npm install
+npm run dev
+npm run test -- --run
+npm run build
+```
+
+The current workspace is summary-only:
+
+- top context bar
+- AI summary
+- evidence list
+- raw log preview
+- executed SPL
+
+## LLM Credential Handling
+
+`spky_llm_credential` now follows the same operator-managed shape as `chat2pay`:
+
+- one row per provider
+- `api_key` is inserted or updated manually in PostgreSQL
+- `session_token` and `session_token_expires_at` are refreshed by the backend
+- no encryption is applied in this internal MVP
+
+Current columns:
+
+- `provider`
+- `api_key`
+- `session_token`
+- `session_token_expires_at`
+- `metadata_json`
+- `updated_at`
+
+Example operator SQL:
+
+```sql
+insert into spky_llm_credential (provider, api_key, updated_at)
+values ('COPILOT_PERSONAL', 'ghp_xxx', now())
+on conflict (provider) do update
+set api_key = excluded.api_key,
+    updated_at = now();
+```
+
+Optional one-time bootstrap from env vars is still supported:
 
 ```sh
 export LLM_API_KEY=...
+export COPILOT_SESSION_TOKEN=
 export LLM_PROXY_URL=http://username:password@proxy-host:80
-# or base64 credentials in user-info:
-# export LLM_PROXY_URL=http://base64:dXNlcm5hbWU6cGFzc3dvcmQ=@proxy-host:80
-# leave empty to disable proxy (direct connection)
 export LLM_MODEL=gpt-5.4
 ```
 
-LLM API key and refreshed Copilot session token are stored in `spky_llm_credential`
-as plaintext values for operational simplicity.
+If the DB row is missing and `LLM_API_KEY` or `COPILOT_SESSION_TOKEN` is provided, the backend inserts the first row once on startup. After that, rotation should be done directly in SQL.
 
-Splunk SDK configuration defaults to the internal HTTPS search head and management port:
+## Splunk Session Handling
 
-```sh
-export SPLUNK_HOST=digital-splunk-search.hk.zzzz
-export SPLUNK_PORT=8089
-export SPLUNK_TRUST_ALL_SSL=true
-```
-
-See `docs/splunky-backend-notes.md` and `TODO.md` for current backend scope and next steps.
+- Splunk password is accepted by `POST /api/sessions/splunk-login`
+- Splunk password is kept only in backend runtime memory
+- Splunk password is never persisted in PostgreSQL
+- frontend requests send `X-Splunky-Session-Id`
 
 ## Local PostgreSQL
-
-For local development, a dedicated PostgreSQL container can be started with:
 
 ```sh
 docker run --name splunky-postgres \
@@ -71,10 +120,17 @@ docker run --name splunky-postgres \
   -d postgres:16
 ```
 
-The backend defaults to:
+Defaults:
 
 ```sh
 DB_URL=jdbc:postgresql://localhost:5432/splunky
 DB_USER=splunky
 DB_PASSWORD=splunky
 ```
+
+## Notes
+
+- `docs/splunky-backend-notes.md` describes the current backend behavior.
+- `docs/splunky-frontend-mvp-notes.md` describes the current frontend scope.
+- `docs/splunky-db-design.md` documents the effective DB model.
+- `docs/splunky-api-contract.yaml` is aligned to the current controllers/DTOs.

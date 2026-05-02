@@ -1,5 +1,7 @@
 # Splunky UI Specification
 
+> Note: this document still describes the broader target product shape. The current shipped MVP is narrower: login, summary, raw logs preview, and executed SPL only. Timeline/graph/sequence/downstream-call/assistant UI remains deferred.
+
 ## 1. Product Summary
 
 **Splunky** is an AI-assisted investigation workspace for API testing environments. Users can paste a Splunk search URL, an API error response, a correlation ID, or a natural-language question. Splunky queries or imports Splunk logs in the backend, analyzes the returned logs with an LLM, and renders a structured investigation result.

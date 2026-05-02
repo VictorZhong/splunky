@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wpb.spky.persistence.jpa.SpkyAuditEventEntity;
 import com.wpb.spky.persistence.jpa.SpkyAuditEventJpaRepository;
 import com.wpb.spky.session.UserSession;
+import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
@@ -13,16 +14,12 @@ import java.util.Map;
 import java.util.UUID;
 
 @Repository
+@RequiredArgsConstructor
 @ConditionalOnProperty(name = "splunky.persistence.enabled", havingValue = "true", matchIfMissing = true)
 public class JpaAuditEventStore implements AuditEventStore {
 
     private final SpkyAuditEventJpaRepository auditEvents;
     private final ObjectMapper mapper;
-
-    public JpaAuditEventStore(SpkyAuditEventJpaRepository auditEvents, ObjectMapper mapper) {
-        this.auditEvents = auditEvents;
-        this.mapper = mapper;
-    }
 
     @Override
     public void record(UserSession session, String eventType, String targetType, UUID targetId,

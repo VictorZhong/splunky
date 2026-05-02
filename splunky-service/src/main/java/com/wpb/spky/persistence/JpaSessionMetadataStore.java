@@ -5,6 +5,7 @@ import com.wpb.spky.persistence.jpa.SpkyUserAccountJpaRepository;
 import com.wpb.spky.persistence.jpa.SpkyUserSessionEntity;
 import com.wpb.spky.persistence.jpa.SpkyUserSessionJpaRepository;
 import com.wpb.spky.session.UserSession;
+import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,17 +14,12 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Repository
+@RequiredArgsConstructor
 @ConditionalOnProperty(name = "splunky.persistence.enabled", havingValue = "true", matchIfMissing = true)
 public class JpaSessionMetadataStore implements SessionMetadataStore {
 
     private final SpkyUserAccountJpaRepository userAccounts;
     private final SpkyUserSessionJpaRepository userSessions;
-
-    public JpaSessionMetadataStore(SpkyUserAccountJpaRepository userAccounts,
-                                   SpkyUserSessionJpaRepository userSessions) {
-        this.userAccounts = userAccounts;
-        this.userSessions = userSessions;
-    }
 
     @Override
     @Transactional

@@ -4,6 +4,7 @@ import com.wpb.spky.session.SessionCredentialManager;
 import com.wpb.spky.session.SessionDtos.SessionResponse;
 import com.wpb.spky.session.SessionDtos.SplunkLoginRequest;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,16 +18,13 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/sessions")
+@RequiredArgsConstructor
 public class SessionController {
 
     private static final String FRONTEND_SESSION_HEADER = "X-Splunky-Session-Id";
     private static final String API_SESSION_HEADER = "X-SPKY-Session-Id";
 
     private final SessionCredentialManager sessions;
-
-    public SessionController(SessionCredentialManager sessions) {
-        this.sessions = sessions;
-    }
 
     @PostMapping("/splunk-login")
     public SessionResponse login(@Valid @RequestBody SplunkLoginRequest request) {

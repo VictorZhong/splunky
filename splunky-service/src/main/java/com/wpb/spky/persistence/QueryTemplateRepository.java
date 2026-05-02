@@ -2,20 +2,18 @@ package com.wpb.spky.persistence;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.wpb.spky.persistence.jpa.SpkyQueryTemplateJpaRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
 
 @Repository
+@RequiredArgsConstructor
 @ConditionalOnProperty(name = "splunky.persistence.enabled", havingValue = "true", matchIfMissing = true)
 public class QueryTemplateRepository {
 
     private final SpkyQueryTemplateJpaRepository queryTemplates;
-
-    public QueryTemplateRepository(SpkyQueryTemplateJpaRepository queryTemplates) {
-        this.queryTemplates = queryTemplates;
-    }
 
     public List<QueryTemplateRecord> findEnabled() {
         return queryTemplates.findByEnabledTrueOrderByTemplateKeyAsc().stream()

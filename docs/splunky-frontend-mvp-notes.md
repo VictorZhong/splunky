@@ -1,56 +1,84 @@
 # Splunky Frontend MVP Notes
 
-## Environment And Market
+## Current Scope
 
-- MVP has only one backend target: testing environment.
-- Environment selector is removed from the UI.
-- Market selector is deferred. Add it back when backend contracts need market-aware Splunk query filters.
+The frontend MVP is now deliberately summary-only.
 
-## Login And Session
+What ships:
 
-- The first screen is login.
-- Users enter Splunk username and password so the backend can query Splunk on their behalf.
-- The frontend must tell users credentials are used for Splunk queries and are not saved.
-- After login, the frontend generates a session ID and sends it with API calls.
-- The frontend mock stores only `sessionId`, `username`, and `createdAt` in `sessionStorage`; it does not store the password.
+- login screen
+- environment selection
+- free-text / Splunk URL investigation input
+- summary workspace
+- raw log preview
+- executed SPL viewer
+- detail drawer for evidence, logs, and SPL
 
-## Unauthorized Handling
+What is deferred:
 
-- If a backend Splunk query finds invalid or expired credentials, backend should return `401`.
-- Frontend should show a modal explaining credentials may be invalid and require the user to log in again.
-- Current mock supports this by returning 401 when session headers are missing or when a request includes `auth-error`.
+- timeline tab
+- service graph
+- sequence view
+- downstream calls view
+- AI assistant panel
 
-## Time Range
+## Login Flow
 
-- Preset ranges remain available for fast searches.
-- Custom time range should expose start datetime, end datetime, and timezone.
-- Default timezone is `HKT (+08:00)`.
-- If the user enters a Splunk URL, the frontend may mark time as `From Splunk URL`, while still allowing the user to override it with a preset or custom range.
+- first screen is `/login`
+- users choose the Splunk environment before entering username/password
+- login page shows the supported environment list on the left
+- backend owns the real session; frontend stores only lightweight session metadata in `sessionStorage`
 
-## Query Input
+The UI must state clearly that:
 
-- The query page should keep one primary text input for Splunk URL, error response, correlation ID, or natural-language question.
-- Do not show API, environment, or market as separate user inputs in the MVP.
-- Input signal detection is multi-value and internal. It is not a single-select UI.
-- The backend/AI should infer SPL, involved APIs, gateways, mesh hops, time clues, and failure evidence from the input and logs.
+- Splunk password is used only for the current backend session
+- Splunk password is not persisted
 
-## Result Context And Summary
+## Investigation Flow
 
-- The result context bar should show the original user input in full with wrapping.
-- Do not show `Test environment` or a single `API` field as investigation context.
-- Summary should include a related API / traffic-hop list because one investigation may involve gateway, istio, SAPI, downstream APIs, and external systems.
+The query page keeps one primary input box for:
 
-## Navigation
+- Splunk URL
+- correlation ID
+- error response
+- natural-language troubleshooting request
 
-- Query page does not show a new-search action in the header.
-- Workspace page shows `New Search`.
-- `New Search` opens `/` in a new browser tab so the current investigation is not discarded.
+The backend is responsible for:
 
-## Frontend Configuration And PCF
+- input interpretation
+- safe SPL generation
+- Splunk querying
+- AI summarization
 
-- Build-time defaults live in `.env.development`, `.env.production`, and `.env.example`.
-- Runtime overrides live in `public/config/splunky-config.js`; this is useful on PCF because the same static bundle can be pointed at a different backend URL.
-- Supported frontend config keys are `mockMode`, `apiBaseUrl`, `routerBasename`, and `VITE_APP_BASE_PATH`.
-- `mockMode=on` uses MSW and same-origin `/api` URLs. `mockMode=off` calls the configured backend API URL.
-- PCF Staticfile deployment should use `pushstate: enabled` so `/login` and `/investigations/:id` do not 404 on browser refresh.
-- If deployed below a path prefix, set both Vite base path and React Router basename, for example `VITE_APP_BASE_PATH=/splunky/` and `VITE_ROUTER_BASENAME=/splunky`.
+The frontend is responsible for:
+
+- collecting the input and time range
+- showing progress/loading states
+- rendering the returned summary/evidence/raw logs/SPL cleanly
+
+## Workspace Layout
+
+The current workspace should show:
+
+1. result context bar
+2. AI summary
+3. evidence list
+4. raw log preview sent to AI
+5. executed SPL
+
+This keeps the first release focused on one reliable path:
+
+`Splunk logs -> AI summary -> readable UI`
+
+## Session And Unauthorized Handling
+
+- requests send `X-Splunky-Session-Id`
+- backend `401` means the Splunk credential/session must be re-established
+- frontend should route the user back to login with a clear explanation
+
+## Configuration
+
+- build-time defaults live in `.env.*`
+- runtime overrides live in `public/config/splunky-config.js`
+- `mockMode=on` uses MSW
+- `mockMode=off` calls the configured backend API

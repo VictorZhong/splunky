@@ -18,8 +18,8 @@ class InMemoryLlmCredentialStoreTest {
 
         assertThat(credential.hasApiKey()).isTrue();
         assertThat(credential.apiKey()).isEqualTo("api-key");
-        assertThat(store.status(LlmProviderType.COPILOT_PERSONAL).secretFingerprint()).isNotBlank();
-        assertThat(store.status(LlmProviderType.COPILOT_PERSONAL).secretFingerprint()).doesNotContain("api-key");
+        assertThat(store.status(LlmProviderType.COPILOT_PERSONAL).apiKeyConfigured()).isTrue();
+        assertThat(store.status(LlmProviderType.COPILOT_PERSONAL).sessionTokenConfigured()).isFalse();
     }
 
     @Test

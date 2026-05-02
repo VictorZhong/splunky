@@ -8,6 +8,7 @@ import com.wpb.spky.investigation.InvestigationService;
 import com.wpb.spky.session.SessionCredentialManager;
 import com.wpb.spky.session.UserSession;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/investigations")
+@RequiredArgsConstructor
 public class InvestigationController {
 
     private static final String FRONTEND_SESSION_HEADER = "X-Splunky-Session-Id";
@@ -25,11 +27,6 @@ public class InvestigationController {
 
     private final SessionCredentialManager sessions;
     private final InvestigationService investigations;
-
-    public InvestigationController(SessionCredentialManager sessions, InvestigationService investigations) {
-        this.sessions = sessions;
-        this.investigations = investigations;
-    }
 
     @PostMapping
     public Investigation start(

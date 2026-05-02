@@ -31,17 +31,11 @@ class SpkyEntityLifecycleTest {
     }
 
     @Test
-    void llmCredentialLifecycleFillsAndUpdatesTimestamps() {
+    void llmCredentialDefaultsMatchSimplifiedSchema() {
         SpkyLlmCredentialEntity entity = new SpkyLlmCredentialEntity();
 
-        entity.prePersist();
-        assertThat(entity.getCreatedAt()).isNotNull();
         assertThat(entity.getUpdatedAt()).isNotNull();
-        assertThat(entity.getStatus()).isEqualTo("ACTIVE");
-
-        entity.setUpdatedAt(null);
-        entity.preUpdate();
-        assertThat(entity.getUpdatedAt()).isNotNull();
+        assertThat(entity.getMetadata()).isEmpty();
     }
 
     @Test

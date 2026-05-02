@@ -1,5 +1,7 @@
 # Splunky Solution Design
 
+> Note: this file describes the broader target design. The current implementation is intentionally smaller and only ships the summary-first workflow: Splunk login, bounded query execution, AI summary, raw log preview, and executed SPL.
+
 ## 1. Purpose
 
 **Splunky** is an AI-assisted investigation tool for test-environment API troubleshooting.

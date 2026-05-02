@@ -5,12 +5,16 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
 @Table(name = "spky_user_session")
+@Getter
+@Setter
 public class SpkyUserSessionEntity {
 
     @Id
@@ -53,25 +57,4 @@ public class SpkyUserSessionEntity {
             startedAt = Instant.now();
         }
     }
-
-    public UUID getSessionId() { return sessionId; }
-    public void setSessionId(UUID sessionId) { this.sessionId = sessionId; }
-    public UUID getUserId() { return userId; }
-    public void setUserId(UUID userId) { this.userId = userId; }
-    public String getSplunkUsername() { return splunkUsername; }
-    public void setSplunkUsername(String splunkUsername) { this.splunkUsername = splunkUsername; }
-    public String getEnvironment() { return environment; }
-    public void setEnvironment(String environment) { this.environment = environment; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    public Instant getStartedAt() { return startedAt; }
-    public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
-    public Instant getExpiresAt() { return expiresAt; }
-    public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
-    public Instant getLastActivityAt() { return lastActivityAt; }
-    public void setLastActivityAt(Instant lastActivityAt) { this.lastActivityAt = lastActivityAt; }
-    public Instant getEndedAt() { return endedAt; }
-    public void setEndedAt(Instant endedAt) { this.endedAt = endedAt; }
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

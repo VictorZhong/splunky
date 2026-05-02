@@ -11,17 +11,16 @@ public interface LlmCredentialStore {
 
     LlmCredentialStatus status(LlmProviderType provider);
 
-    LlmCredentialStatus upsertApiKey(LlmProviderType provider, String apiKey);
+    void upsertSessionToken(LlmProviderType provider, String sessionToken, Instant expiresAt);
 
-    LlmCredentialStatus upsertSessionToken(LlmProviderType provider, String sessionToken, Instant expiresAt);
+    void bootstrapIfMissing(LlmProviderType provider, String apiKey, String sessionToken);
 
     record Credential(
             LlmProviderType provider,
             String apiKey,
             String sessionToken,
             Instant sessionTokenExpiresAt,
-            Instant lastRefreshedAt,
-            String secretFingerprint
+            Instant updatedAt
     ) {
         public boolean hasApiKey() {
             return apiKey != null && !apiKey.isBlank();
@@ -31,6 +30,10 @@ public interface LlmCredentialStore {
             return sessionToken != null && !sessionToken.isBlank()
                     && sessionTokenExpiresAt != null
                     && sessionTokenExpiresAt.isAfter(now.plusSeconds(30));
+        }
+
+        public boolean hasSessionToken() {
+            return sessionToken != null && !sessionToken.isBlank();
         }
     }
 }

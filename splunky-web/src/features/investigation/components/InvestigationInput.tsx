@@ -36,10 +36,10 @@ type TimePreset =
 
 const loadingStages = [
   'Understanding input',
-  'Selecting query templates',
+  'Planning a safe Splunk query',
   'Querying Splunk logs',
-  'Building investigation timeline',
-  'Analyzing evidence',
+  'Sending log evidence to AI',
+  'Building summary',
 ]
 
 const examples = [
@@ -146,12 +146,13 @@ export function InvestigationInput() {
         <section className="min-w-0">
           <div className="mb-5">
             <Typography.Title level={1} className="m-0 max-w-3xl">
-              AI-assisted API log investigation
+              Summary-first log investigation
             </Typography.Title>
             <Typography.Paragraph className="mt-3 max-w-2xl text-base text-slate-600">
               Paste an error response, correlation ID, Splunk search URL, or
-              a natural-language question. Splunky will extract time range,
-              SPL, APIs, and evidence from the input.
+              a natural-language question. Splunky will extract the time range,
+              query Splunk, send the resulting log evidence to AI, and render a
+              structured summary.
             </Typography.Paragraph>
           </div>
 

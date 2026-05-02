@@ -2,27 +2,21 @@
 
 ## P0
 
-- Align `docs/splunky-api-contract.yaml`, frontend API calls, and backend controller DTOs into one contract.
-- Wire frontend login to `POST /api/sessions/splunk-login` so Splunk password reaches backend session memory instead of only generating a browser-side session ID.
-- Validate the Splunk SDK integration inside the intranet with real staff credentials and the internal search head.
-- Tighten free-text query planning with approved SPL templates for common flows: correlation ID, API error response, app/service name, customer ID.
-- Decide frontend behavior for Splunk URL time override versus selected UI time range.
-- Wire frontend summary view to backend `POST /api/investigations` response and require `X-Splunky-Session-Id`.
+- Validate the end-to-end Splunk SDK flow inside the intranet with real staff credentials for each supported environment.
+- Validate Copilot credential rotation by manually `insert`/`update`-ing `spky_llm_credential` in PostgreSQL.
+- Tighten free-text query planning with approved SPL templates for common flows: correlation ID, API error response, service name, and customer/reference IDs.
+- Add backend integration tests for Splunk 401 re-login, Splunk URL `sid=` import, client error mapping, and Copilot token refresh retry behavior.
+- Add row-limit, truncation, and timeout safeguards for large Splunk result sets before broader internal rollout.
 
 ## P1
 
-- Add DB-backed persistence for investigation/run/chat metadata beyond the current placeholder in-memory active result store.
-- Add encrypted DB-backed user-scoped LLM credential storage once login/profile ownership is finalized. Current implementation stores app-level encrypted Copilot credentials in `spky_llm_credential`.
-- Persist investigation metadata, run metadata, chat messages, query metadata, and derived structured evidence.
-- Keep raw Splunk logs transient; never persist full raw payloads.
-- Add integration tests for Splunk 401 re-login, Splunk URL `sid=` import, Splunk client error mapping, and LLM token refresh retry behavior.
-- Add pagination/streaming safeguards for large Splunk result sets.
+- Persist investigation/run/query/chat metadata once the summary-only workflow is considered stable.
+- Add stored history APIs after DB-backed investigation persistence exists.
+- Expand the summary prompt/output package for stronger structured evidence extraction.
+- Add local dev profiles and proxy defaults for running `splunky-web` against `splunky-service`.
 
 ## P2
 
-- Expand LLM prompt package for structured evidence extraction beyond summary.
-- Add run history APIs once DB persistence exists.
-- Add query-template management API from the OpenAPI contract.
-- Add audit events for LLM credential changes and future export/share actions.
-- Add local dev profile and frontend proxy configuration for running `splunky-web` against `splunky-service`.
-- Implement deferred views after summary stabilizes: timeline, service graph, sequence view, downstream calls, and AI assistant follow-ups.
+- Reintroduce deferred workspace views after the summary-only MVP stabilizes: timeline, service graph, sequence, downstream calls.
+- Reintroduce AI assistant and follow-up UX after the summary experience is reliable enough to justify the extra surface area.
+- Add query-template management APIs and operator tooling if template volume grows beyond SQL/Flyway maintenance.

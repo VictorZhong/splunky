@@ -6,12 +6,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
 @Table(name = "spky_user_account")
+@Getter
+@Setter
 public class SpkyUserAccountEntity {
 
     @Id
@@ -60,23 +64,4 @@ public class SpkyUserAccountEntity {
     void preUpdate() {
         updatedAt = Instant.now();
     }
-
-    public UUID getUserId() { return userId; }
-    public void setUserId(UUID userId) { this.userId = userId; }
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
-    public String getDisplayName() { return displayName; }
-    public void setDisplayName(String displayName) { this.displayName = displayName; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    public Instant getLastLoginAt() { return lastLoginAt; }
-    public void setLastLoginAt(Instant lastLoginAt) { this.lastLoginAt = lastLoginAt; }
-    public String getCreatedByStaffId() { return createdByStaffId; }
-    public void setCreatedByStaffId(String createdByStaffId) { this.createdByStaffId = createdByStaffId; }
-    public String getUpdatedByStaffId() { return updatedByStaffId; }
-    public void setUpdatedByStaffId(String updatedByStaffId) { this.updatedByStaffId = updatedByStaffId; }
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

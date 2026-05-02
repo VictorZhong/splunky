@@ -12,8 +12,8 @@ import com.wpb.spky.llm.LlmCompletionRequest.Role;
 import com.wpb.spky.llm.LlmRouter;
 import com.wpb.spky.splunk.SplunkSearchRequest;
 import com.wpb.spky.splunk.SplunkSearchResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -22,20 +22,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class InvestigationSummaryService {
-
-    private static final Logger log = LoggerFactory.getLogger(InvestigationSummaryService.class);
     private static final int LLM_ROW_LIMIT = 30;
     private static final int FIELD_VALUE_LIMIT = 700;
 
     private final LlmRouter llmRouter;
     private final ObjectMapper mapper;
-
-    public InvestigationSummaryService(LlmRouter llmRouter, ObjectMapper mapper) {
-        this.llmRouter = llmRouter;
-        this.mapper = mapper;
-    }
 
     public DiagnosisSummary summarize(InvestigationInput input, SplunkSearchRequest query,
                                       SplunkSearchResult result, Instant now) {

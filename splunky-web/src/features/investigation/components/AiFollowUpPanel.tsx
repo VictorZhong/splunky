@@ -78,7 +78,7 @@ export function AiFollowUpPanel({ investigation }: AiFollowUpPanelProps) {
   const [prompt, setPrompt] = useState('')
   const [pendingRequery, setPendingRequery] = useState<RequeryStatus | null>(null)
   const navigate = useNavigate()
-  const setActiveTab = useInvestigationUiStore((state) => state.setActiveTab)
+  const openDrawer = useInvestigationUiStore((state) => state.openDrawer)
   const mutation = useFollowUp(investigation.id)
 
   function submit(value: string) {
@@ -148,7 +148,12 @@ export function AiFollowUpPanel({ investigation }: AiFollowUpPanelProps) {
           {pendingRequery ? (
             <RequeryStatusCard
               status={pendingRequery}
-              onViewSpl={() => setActiveTab('spl')}
+              onViewSpl={() => {
+                const firstQuery = investigation.activeResult.queries[0]
+                if (firstQuery) {
+                  openDrawer({ type: 'SPL_QUERY', id: firstQuery.id })
+                }
+              }}
             />
           ) : null}
         </div>
