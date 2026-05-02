@@ -1,7 +1,7 @@
 package com.wpb.spky.persistence;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.wpb.spky.persistence.jpa.SpkyQueryTemplateJpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,32 +11,26 @@ import java.util.UUID;
 @ConditionalOnProperty(name = "splunky.persistence.enabled", havingValue = "true", matchIfMissing = true)
 public class QueryTemplateRepository {
 
-    private final JdbcClient jdbc;
+    private final SpkyQueryTemplateJpaRepository queryTemplates;
 
-    public QueryTemplateRepository(JdbcClient jdbc) {
-        this.jdbc = jdbc;
+    public QueryTemplateRepository(SpkyQueryTemplateJpaRepository queryTemplates) {
+        this.queryTemplates = queryTemplates;
     }
 
     public List<QueryTemplateRecord> findEnabled() {
-        return jdbc.sql("""
-                select template_id, template_key, name, description, template_spl,
-                       default_time_window_minutes, max_time_window_minutes, max_result_count, enabled
-                from spky_query_template
-                where enabled = true
-                order by template_key
-                """)
-                .query((rs, rowNum) -> new QueryTemplateRecord(
-                        rs.getObject("template_id", UUID.class),
-                        rs.getString("template_key"),
-                        rs.getString("name"),
-                        rs.getString("description"),
-                        rs.getString("template_spl"),
-                        rs.getInt("default_time_window_minutes"),
-                        rs.getInt("max_time_window_minutes"),
-                        rs.getInt("max_result_count"),
-                        rs.getBoolean("enabled")
+        return queryTemplates.findByEnabledTrueOrderByTemplateKeyAsc().stream()
+                .map(entity -> new QueryTemplateRecord(
+                        entity.getTemplateId(),
+                        entity.getTemplateKey(),
+                        entity.getName(),
+                        entity.getDescription(),
+                        entity.getTemplateSpl(),
+                        entity.getDefaultTimeWindowMinutes(),
+                        entity.getMaxTimeWindowMinutes(),
+                        entity.getMaxResultCount(),
+                        entity.isEnabled()
                 ))
-                .list();
+                .toList();
     }
 
     public record QueryTemplateRecord(
