@@ -2,6 +2,7 @@ import { Modal } from 'antd'
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from './sessionStore'
+import { logoutSession } from './sessionApi'
 
 const inactivityLimitMs = 30 * 60 * 1000
 const activityEvents = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart']
@@ -34,6 +35,9 @@ export function SessionTimeoutWatcher() {
       }
 
       modalOpen.current = true
+      if (session?.sessionId) {
+        void logoutSession(session.sessionId).catch(() => undefined)
+      }
       logout()
       Modal.info({
         title: 'Session expired',

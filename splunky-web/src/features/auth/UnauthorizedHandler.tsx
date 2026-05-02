@@ -3,9 +3,11 @@ import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from './sessionStore'
 import { unauthorizedEventName } from './authEvents'
+import { logoutSession } from './sessionApi'
 
 export function UnauthorizedHandler() {
   const navigate = useNavigate()
+  const session = useSessionStore((state) => state.session)
   const logout = useSessionStore((state) => state.logout)
   const modalOpen = useRef(false)
 
@@ -16,6 +18,9 @@ export function UnauthorizedHandler() {
       }
 
       modalOpen.current = true
+      if (session?.sessionId) {
+        void logoutSession(session.sessionId).catch(() => undefined)
+      }
       logout()
       Modal.warning({
         title: 'Splunk credentials may be invalid',
@@ -35,7 +40,7 @@ export function UnauthorizedHandler() {
     window.addEventListener(unauthorizedEventName, handleUnauthorized)
     return () =>
       window.removeEventListener(unauthorizedEventName, handleUnauthorized)
-  }, [logout, navigate])
+  }, [logout, navigate, session])
 
   return null
 }

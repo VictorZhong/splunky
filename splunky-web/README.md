@@ -11,9 +11,9 @@ npm install
 npm run dev
 ```
 
-The dev server uses MSW to mock login-protected `/api/investigations` and
-follow-up requests by default. Login generates a session ID for API calls and
-does not store the password.
+The login form calls backend `/api/sessions/splunk-login` and uses the returned
+session ID for authenticated API calls. In `mockMode=on`, MSW mocks both
+session endpoints and investigation endpoints for frontend-only development.
 
 ## Environment Configuration
 

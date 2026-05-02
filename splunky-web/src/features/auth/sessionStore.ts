@@ -5,12 +5,13 @@ const storageKey = 'splunky.session'
 export interface AuthSession {
   sessionId: string
   username: string
+  environment: string
   createdAt: string
 }
 
 interface SessionState {
   session: AuthSession | null
-  login: (username: string) => AuthSession
+  setSession: (session: AuthSession) => void
   logout: () => void
 }
 
@@ -28,25 +29,11 @@ function readSession(): AuthSession | null {
   }
 }
 
-function createSessionId() {
-  if (window.crypto.randomUUID) {
-    return window.crypto.randomUUID()
-  }
-
-  return `session-${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
-
 export const useSessionStore = create<SessionState>((set) => ({
   session: readSession(),
-  login: (username) => {
-    const session: AuthSession = {
-      sessionId: createSessionId(),
-      username,
-      createdAt: new Date().toISOString(),
-    }
+  setSession: (session) => {
     window.sessionStorage.setItem(storageKey, JSON.stringify(session))
     set({ session })
-    return session
   },
   logout: () => {
     window.sessionStorage.removeItem(storageKey)

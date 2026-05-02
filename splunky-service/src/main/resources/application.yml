@@ -41,7 +41,7 @@ splunky:
     ttl-minutes: ${SPKY_SESSION_TTL_MINUTES:30}
     # Compatibility bridge for the current frontend mock, which generates a
     # session ID in browser storage before backend login is wired.
-    accept-frontend-generated-sessions: ${SPKY_ACCEPT_FRONTEND_SESSIONS:true}
+    accept-frontend-generated-sessions: ${SPKY_ACCEPT_FRONTEND_SESSIONS:false}
   llm:
     primary-provider: ${SPKY_LLM_PRIMARY_PROVIDER:COPILOT_PERSONAL}
     fallback-provider: ${SPKY_LLM_FALLBACK_PROVIDER:REMOTE_API}

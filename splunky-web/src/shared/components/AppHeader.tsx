@@ -2,6 +2,7 @@ import { Avatar, Button, Dropdown, Layout, Space, Typography } from 'antd'
 import { BookOpen, LogOut, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '../../features/auth/sessionStore'
+import { logoutSession } from '../../features/auth/sessionApi'
 import { buildAppUrl } from '../../app/config'
 
 const { Header } = Layout
@@ -21,6 +22,9 @@ export function AppHeader({ showNewSearch = false }: AppHeaderProps) {
   }
 
   function handleLogout() {
+    if (session?.sessionId) {
+      void logoutSession(session.sessionId).catch(() => undefined)
+    }
     logout()
     navigate('/login', { replace: true })
   }

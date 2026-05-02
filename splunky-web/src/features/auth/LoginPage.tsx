@@ -1,4 +1,5 @@
 import { Alert, Button, Card, Form, Input, Layout, Typography } from 'antd'
+import { useState } from 'react'
 import {
   FileSearch,
   GitBranch,
@@ -9,11 +10,13 @@ import {
 } from 'lucide-react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useSessionStore } from './sessionStore'
+import { loginSession, SessionApiError } from './sessionApi'
 import type { LucideIcon } from 'lucide-react'
 
 interface LoginFormValues {
   username: string
   password: string
+  environment: string
 }
 
 const featureHighlights: Array<{
@@ -40,16 +43,40 @@ const featureHighlights: Array<{
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const session = useSessionStore((state) => state.session)
-  const login = useSessionStore((state) => state.login)
+  const setSession = useSessionStore((state) => state.setSession)
 
   if (session) {
     return <Navigate to="/" replace />
   }
 
-  function submit(values: LoginFormValues) {
-    login(values.username.trim())
-    navigate('/', { replace: true })
+  async function submit(values: LoginFormValues) {
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      const response = await loginSession({
+        splunkUsername: values.username.trim(),
+        splunkPassword: values.password,
+        environment: values.environment.trim().toUpperCase(),
+      })
+      setSession({
+        sessionId: response.sessionId,
+        username: response.splunkUsername,
+        environment: response.environment,
+        createdAt: new Date().toISOString(),
+      })
+      navigate('/', { replace: true })
+    } catch (error) {
+      if (error instanceof SessionApiError) {
+        setSubmitError(error.message)
+      } else {
+        setSubmitError('Failed to login. Please retry.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -97,7 +124,14 @@ export function LoginPage() {
             title="Splunky queries Splunk as you"
             description="Your password is used only for the current session and is not saved. It expires immediately after logout, and the session also expires after 30 minutes of inactivity."
           />
-          <Form<LoginFormValues> layout="vertical" onFinish={submit}>
+          {submitError ? (
+            <Alert className="mb-4" type="error" showIcon message={submitError} />
+          ) : null}
+          <Form<LoginFormValues>
+            layout="vertical"
+            onFinish={submit}
+            initialValues={{ environment: 'SIT' }}
+          >
             <Form.Item
               label="Username"
               name="username"
@@ -108,6 +142,13 @@ export function LoginPage() {
                 autoComplete="username"
                 placeholder="e.g. zhong.zc"
               />
+            </Form.Item>
+            <Form.Item
+              label="Environment"
+              name="environment"
+              rules={[{ required: true, message: 'Enter target environment.' }]}
+            >
+              <Input placeholder="e.g. SIT / UAT / PROD" />
             </Form.Item>
             <Form.Item
               label="Password"
@@ -126,6 +167,7 @@ export function LoginPage() {
               htmlType="submit"
               icon={<LogIn size={16} />}
               size="large"
+              loading={submitting}
             >
               Start Session
             </Button>
