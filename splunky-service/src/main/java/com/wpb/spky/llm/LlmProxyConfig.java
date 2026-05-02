@@ -3,6 +3,7 @@ package com.wpb.spky.llm;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 public record LlmProxyConfig(
         String scheme,
@@ -34,6 +35,11 @@ public record LlmProxyConfig(
             String[] parts = rawUserInfo.split(":", 2);
             username = percentDecode(parts[0]);
             password = parts.length > 1 ? percentDecode(parts[1]) : "";
+            if ("base64".equalsIgnoreCase(username)) {
+                String[] decodedCredentials = parseBase64Credentials(password);
+                username = decodedCredentials[0];
+                password = decodedCredentials[1];
+            }
         }
         return new LlmProxyConfig(scheme, host, port, username, password);
     }
@@ -52,5 +58,18 @@ public record LlmProxyConfig(
 
     private static String percentDecode(String raw) {
         return URLDecoder.decode(raw.replace("+", "%2B"), StandardCharsets.UTF_8);
+    }
+
+    private static String[] parseBase64Credentials(String encoded) {
+        try {
+            String decoded = new String(Base64.getDecoder().decode(encoded), StandardCharsets.UTF_8);
+            int splitIndex = decoded.indexOf(':');
+            if (splitIndex < 0) {
+                return new String[]{decoded, ""};
+            }
+            return new String[]{decoded.substring(0, splitIndex), decoded.substring(splitIndex + 1)};
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid base64 proxy credentials in LLM proxy URL.", ex);
+        }
     }
 }

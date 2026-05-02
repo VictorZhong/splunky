@@ -39,6 +39,9 @@ LLM configuration uses environment variables compatible with the `chat2pay` appr
 ```sh
 export LLM_API_KEY=...
 export LLM_PROXY_URL=http://username:password@proxy-host:80
+# or base64 credentials in user-info:
+# export LLM_PROXY_URL=http://base64:dXNlcm5hbWU6cGFzc3dvcmQ=@proxy-host:80
+# leave empty to disable proxy (direct connection)
 export LLM_MODEL=gpt-5.4
 ```
 

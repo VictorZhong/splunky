@@ -38,7 +38,7 @@ loaded before the React app starts and is intended for PCF/static hosting:
 ```js
 window.__SPLUNKY_CONFIG__ = {
   mockMode: 'off',
-  apiBaseUrl: '/api',
+  apiBaseUrl: 'https://splunky-api.example.com/api',
   routerBasename: '/',
 }
 ```
@@ -73,6 +73,13 @@ cf push
 `public/Staticfile` is copied into `dist/` during the Vite build and enables
 `pushstate`, so direct refreshes such as `/login` and
 `/investigations/:id` serve `index.html` instead of returning a PCF 404.
+
+For PCF split deployment with a dedicated frontend domain (no extra path), keep:
+
+```bash
+VITE_APP_BASE_PATH=/
+VITE_ROUTER_BASENAME=/
+```
 
 If the app is deployed under a path prefix such as `/splunky/`, set both:
 

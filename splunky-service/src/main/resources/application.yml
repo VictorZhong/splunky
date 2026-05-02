@@ -55,7 +55,10 @@ splunky:
       token-url: ${COPILOT_TOKEN_URL:https://api.github.com/copilot_internal/v2/token}
       # Full proxy URL for Copilot traffic, for example:
       # http://username:password@proxy-host:80
+      # or base64 user-info:
+      # http://base64:dXNlcm5hbWU6cGFzc3dvcmQ=@proxy-host:80
       # Percent-encode special characters in username/password.
+      # If empty, proxy is disabled and requests go direct.
       proxy-url: ${LLM_PROXY_URL:}
     remote:
       base-url: ${REMOTE_LLM_BASE_URL:}

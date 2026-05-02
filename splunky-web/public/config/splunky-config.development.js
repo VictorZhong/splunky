@@ -1,5 +1,7 @@
 window.__SPLUNKY_CONFIG__ = {
   mockMode: 'on',
+  // When developing against real backend on another port, e.g.
+  // apiBaseUrl: 'http://localhost:8080/api',
   apiBaseUrl: '',
   routerBasename: '/',
 }
