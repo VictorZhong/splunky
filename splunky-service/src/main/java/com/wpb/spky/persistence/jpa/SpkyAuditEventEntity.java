@@ -3,6 +3,7 @@ package com.wpb.spky.persistence.jpa;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -40,8 +41,18 @@ public class SpkyAuditEventEntity {
     @Column(name = "metadata_json", nullable = false, columnDefinition = "jsonb")
     private String metadataJson;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    @PrePersist
+    void prePersist() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+        if (metadataJson == null || metadataJson.isBlank()) {
+            metadataJson = "{}";
+        }
+    }
 
     public UUID getAuditId() { return auditId; }
     public void setAuditId(UUID auditId) { this.auditId = auditId; }

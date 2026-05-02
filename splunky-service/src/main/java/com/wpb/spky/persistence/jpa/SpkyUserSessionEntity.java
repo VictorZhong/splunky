@@ -3,6 +3,7 @@ package com.wpb.spky.persistence.jpa;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -28,10 +29,10 @@ public class SpkyUserSessionEntity {
     @Column(name = "status", nullable = false)
     private String status;
 
-    @Column(name = "started_at")
+    @Column(name = "started_at", nullable = false)
     private Instant startedAt;
 
-    @Column(name = "expires_at")
+    @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
     @Column(name = "last_activity_at")
@@ -40,8 +41,18 @@ public class SpkyUserSessionEntity {
     @Column(name = "ended_at")
     private Instant endedAt;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    @PrePersist
+    void prePersist() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+        if (startedAt == null) {
+            startedAt = Instant.now();
+        }
+    }
 
     public UUID getSessionId() { return sessionId; }
     public void setSessionId(UUID sessionId) { this.sessionId = sessionId; }

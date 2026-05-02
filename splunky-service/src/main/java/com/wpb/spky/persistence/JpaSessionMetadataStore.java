@@ -28,8 +28,12 @@ public class JpaSessionMetadataStore implements SessionMetadataStore {
     @Override
     @Transactional
     public void recordStarted(UserSession session) {
+        Instant now = Instant.now();
         UUID userId = ensureUser(session);
         SpkyUserSessionEntity entity = userSessions.findById(session.sessionId()).orElseGet(SpkyUserSessionEntity::new);
+        if (entity.getCreatedAt() == null) {
+            entity.setCreatedAt(now);
+        }
         entity.setSessionId(session.sessionId());
         entity.setUserId(userId);
         entity.setSplunkUsername(session.username());

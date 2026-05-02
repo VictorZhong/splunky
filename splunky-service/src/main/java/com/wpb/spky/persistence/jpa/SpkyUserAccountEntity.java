@@ -3,6 +3,8 @@ package com.wpb.spky.persistence.jpa;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -34,11 +36,30 @@ public class SpkyUserAccountEntity {
     @Column(name = "updated_by_staff_id")
     private String updatedByStaffId;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @PrePersist
+    void prePersist() {
+        Instant now = Instant.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+        if (status == null || status.isBlank()) {
+            status = "ACTIVE";
+        }
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        updatedAt = Instant.now();
+    }
 
     public UUID getUserId() { return userId; }
     public void setUserId(UUID userId) { this.userId = userId; }
